@@ -223,7 +223,7 @@ A task is checked off only when its gates pass.
   - **Re-saved copies**: only the original file verifies.
   - **Legal status**: an HMAC is not a legal electronic signature. Future work: a signed PDF (PAdES) with a bank certificate.
 - [X] T034 [P] Add the feature to `README.md` ("How it works" and the demo instructions), and add the transcript PDF and check code to `specs/001-dispute-intake-assistant/contracts/http-api.md` by linking to `specs/002-chat-transcript-pdf/contracts/http-api.md`
-- [ ] T035 Rebuild and redeploy with `make docker` and `make deploy-azure`. Then, on the deployed URL:
+- [X] T035 Rebuild and redeploy with `make docker` and `make deploy-azure`. Then, on the deployed URL:
   - run quickstart §2, steps 1 and 6, and §3;
   - confirm that `/api/health` shows `"transcript_verification": "configured"`;
   - confirm that a PDF downloaded before an idle scale-to-zero still verifies as **match**.
