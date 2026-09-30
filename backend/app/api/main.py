@@ -61,6 +61,7 @@ def demo_customers():
         "México, debit card, last 48 hours": f"c.country = 'México' AND p.product_type = 'Tarjeta Débito' AND t.transaction_date >= TIMESTAMP '{store.as_of - timedelta(hours=48)}'",
         "Colombia, card purchase": "c.country = 'Colombia' AND t.transaction_type = 'Purchase' AND t.merchant_name IS NOT NULL",
         "Argentina, card purchase": "c.country = 'Argentina' AND t.transaction_type = 'Purchase' AND t.merchant_name IS NOT NULL",
+        "charge under compliance review (synthetic)": "t.transaction_id IN (SELECT transaction_id FROM compliance_reviews) AND t.merchant_name IS NOT NULL",
     }
     out = []
     for label, cond in picks.items():
@@ -105,6 +106,8 @@ def chat(req: ChatRequest):
 
     def stream():
         for event in engine.handle(s, req.text):
+            if event.get("internal"):  # staff-only trace (risk estimate, compliance holds, case types): never sent
+                continue
             yield f"event: {event['type']}\ndata: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})

@@ -22,6 +22,8 @@ import duckdb
 from app.config import settings
 from app.data.quality import run_checks
 
+TABLES = ["customers", "products", "transactions", "outbound_contacts", "complaints", "compliance_reviews"]
+
 # Organizer data mixes "Mexico" and "México"; everything downstream uses "México".
 COUNTRY = "replace({col}, 'Mexico', 'México')"
 
@@ -75,8 +77,16 @@ def build(mirror: Path, out: Path, sample_customers: int | None = None, seed: fl
                affected_product_id, status, closing_date
         FROM {_src(mirror, 'complaints')} {keep}""")
 
+    # SYNTHETIC: the dataset flags no charge as under anti-money-laundering review, so FR-018 could not
+    # be exercised. A seeded 0.05% sample of transactions stands in for such a list. It is labelled
+    # synthetic and is used only to show that the assistant never explains these charges.
+    con.sql(f"SELECT setseed({seed})")
+    con.sql("""CREATE TEMP TABLE compliance_reviews AS
+        SELECT transaction_id, customer_id, true AS synthetic FROM transactions
+        WHERE hash(transaction_id || 'compliance-review') % 2000 = 0""")
+
     counts = {}
-    for t in ["customers", "products", "transactions", "outbound_contacts", "complaints"]:
+    for t in TABLES:
         con.sql(f"COPY {t} TO '{out / t}.parquet' (FORMAT parquet)")
         counts[t] = con.sql(f"SELECT count(*) FROM {t}").fetchone()[0]
 
@@ -104,7 +114,7 @@ def build_demo(src: Path, out: Path, n: int = 500, per_path: int = 5, seed: floa
     path, then random customers up to n. Only these customers' rows are kept."""
     out.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    for t in ["customers", "products", "transactions", "outbound_contacts", "complaints"]:
+    for t in TABLES:
         con.sql(f"CREATE VIEW {t}_all AS SELECT * FROM read_parquet('{src / t}.parquet')")
     con.sql("CREATE VIEW tx_all AS SELECT * FROM transactions_all")
     con.sql(f"SELECT setseed({seed})")
@@ -114,6 +124,9 @@ def build_demo(src: Path, out: Path, n: int = 500, per_path: int = 5, seed: floa
         picks.append(f"""(SELECT DISTINCT t.customer_id FROM transactions_all t JOIN customers_all c USING (customer_id)
             JOIN products_all p USING (product_id) WHERE {recent} AND c.customer_status = 'Active'
             AND t.transaction_type IN {DISPUTABLE} AND {cond} ORDER BY t.customer_id LIMIT {per_path})""")
+    picks.append(f"""(SELECT DISTINCT t.customer_id FROM compliance_reviews_all r JOIN transactions_all t USING (transaction_id)
+        JOIN customers_all c ON c.customer_id = t.customer_id WHERE {recent} AND c.customer_status = 'Active'
+        AND t.merchant_name IS NOT NULL AND t.transaction_type IN ('Purchase', 'Payment') ORDER BY t.customer_id LIMIT {per_path})""")
     picks.append(f"""(SELECT DISTINCT o.customer_id FROM outbound_contacts_all o JOIN customers_all c USING (customer_id)
         WHERE o.contact_ts >= (SELECT max(transaction_date) FROM tx_all) - INTERVAL 30 DAY AND o.channel IN ('SMS', 'WhatsApp')
         AND c.customer_status = 'Active' ORDER BY o.customer_id LIMIT {per_path})""")
@@ -123,7 +136,7 @@ def build_demo(src: Path, out: Path, n: int = 500, per_path: int = 5, seed: floa
             f"ORDER BY random() LIMIT {max(0, n - have)}")
     keep = "WHERE customer_id IN (SELECT customer_id FROM keep)"
     counts = {}
-    for t in ["customers", "products", "transactions", "outbound_contacts", "complaints"]:
+    for t in TABLES:
         con.sql(f"CREATE TEMP TABLE {t} AS SELECT * FROM {t}_all {keep}")
         con.sql(f"COPY {t} TO '{out / t}.parquet' (FORMAT parquet)")
         counts[t] = con.sql(f"SELECT count(*) FROM {t}").fetchone()[0]
@@ -133,6 +146,8 @@ def build_demo(src: Path, out: Path, n: int = 500, per_path: int = 5, seed: floa
     for name, cond in DEMO_PATHS.items():
         coverage[name] = con.sql(f"""SELECT count(DISTINCT t.customer_id) FROM transactions t JOIN customers c USING (customer_id)
             JOIN products p USING (product_id) WHERE {recent} AND t.transaction_type IN {DISPUTABLE} AND {cond}""").fetchone()[0]
+    coverage["compliance_review_charge"] = con.sql(f"""SELECT count(DISTINCT t.customer_id) FROM compliance_reviews r
+        JOIN transactions t USING (transaction_id) WHERE {recent} AND t.merchant_name IS NOT NULL""").fetchone()[0]
     coverage["recent_bank_sms_or_whatsapp"] = con.sql("""SELECT count(DISTINCT customer_id) FROM outbound_contacts
         WHERE contact_ts >= (SELECT max(transaction_date) FROM tx_all) - INTERVAL 30 DAY AND channel IN ('SMS', 'WhatsApp')""").fetchone()[0]
     report.update({"row_counts": counts, "demo_path_coverage": coverage,

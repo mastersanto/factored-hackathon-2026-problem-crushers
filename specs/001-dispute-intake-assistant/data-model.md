@@ -47,6 +47,14 @@ Dropped at build: document number and type, email, phones, address, date of birt
 | channel | SMS, WhatsApp, Email, Push, or Voice |
 | kind, topic, delivered | `campaign` or `call`. There are no transactional alerts or collections, so "no record" is not proof. |
 
+### compliance_reviews (synthetic)
+
+| Field | Notes |
+|-------|-------|
+| transaction_id, customer_id | A seeded 0.05% sample of transactions (2,184), labelled `synthetic = true` |
+
+The dataset flags no charge as under anti-money-laundering review, so this list exists only to demonstrate FR-018. In production it would come from the compliance system.
+
 ### complaints
 
 Carried for context: case type, category and subcategory, affected product, status, and dates. The workflow does not read it yet.
@@ -76,6 +84,7 @@ confirm ──clear yes (rules and model agree)──▶ closed           (no ha
 confirm ──negation / "no fui yo"──▶ statement
 confirm ──model says yes, rules do not──▶ confirm               (asks again: the close guard)
 statement ──customer's account──▶ closed                        (handoff: unrecognized_charge or fraud_suspected)
+confirm/choose ──charge under compliance review──▶ closed        (neutral message; compliance_review handoff; no facts, no reason)
 start ──bank-contact check──▶ start                             (verdict: bank_contact / no_record)
 start ──contact asked for a secret──▶ contact_shared            (asks: did you share it?)
 contact_shared ──yes──▶ closed                                  (urgent handoff)
@@ -103,7 +112,7 @@ any ──another customer's id in the text──▶ unchanged            (refus
 ### Handoff
 
 - **Fields**:
-  - case_id, created_at, and case_type (`unrecognized_charge`, `fraud_suspected`, `fake_contact_secret_shared`, or `technical_fallback`);
+  - case_id, created_at, and case_type (`unrecognized_charge`, `fraud_suspected`, `fake_contact_secret_shared`, `technical_fallback`, or `compliance_review`);
   - priority (`normal`, `high`, or `urgent`) and language;
   - customer (id, first name, country, segment) and request;
   - verified_facts (transaction id, date, amount, currency, merchant, city, country, channel, status, product, last4);
@@ -111,6 +120,7 @@ any ──another customer's id in the text──▶ unchanged            (refus
   - actions_taken and security_flags;
   - customer_statement, shared_secret, and card;
   - rights (rule ids), answer_by, open_questions, and contact_channel.
+- **Visibility**: the customer's stream carries only `case_id`. Every other field, and every trace step marked internal (the risk estimate, the compliance check, escalation details), stays server-side and is visible only in the specialist queue.
 - **Priority**:
   - urgent: a secret was shared with a fake contact;
   - high: a secret was shared during a claim, or the risk estimate is flagged;

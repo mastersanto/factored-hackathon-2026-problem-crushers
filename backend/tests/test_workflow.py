@@ -32,6 +32,11 @@ def say(sid: str, text: str) -> list[dict]:
 
 
 def of(events, kind):
+    if kind == "handoff":  # the stream carries only the case number; the specialist queue holds the full handoff
+        queue = {h["case_id"]: h for h in client.get("/api/handoffs").json()}
+        found = [e for e in events if e["type"] == "handoff"]
+        assert all(set(e["handoff"]) == {"case_id"} for e in found), "internal handoff fields sent to the customer"
+        return [{"type": "handoff", "handoff": queue[e["handoff"]["case_id"]]} for e in found]
     return [e for e in events if e["type"] == kind]
 
 
@@ -150,3 +155,16 @@ def test_quick_replies_in_portuguese_after_a_scam_contact():
     assert replies == ["Sim, compartilhei", "Não, não compartilhei nada"]
     ev = say(sid, replies[1])
     assert not of(ev, "handoff") and of(ev, "done")[-1]["stage"] == "start"
+
+
+def test_compliance_hold_reveals_nothing_to_the_customer():
+    sid, d = session("charge under compliance review (synthetic)")
+    r = client.post("/api/chat", json={"session_id": sid, "text": f"No reconozco un cargo de {amount_text(d['hint']['amount'])} en {d['hint']['merchant']}"})
+    raw = r.text.lower()
+    for word in ("compliance", "review", "probability", "priority", "case_type", "lavado"):
+        assert word not in raw, f"'{word}' reached the customer's stream"
+    ev = [json.loads(line[6:]) for line in r.text.splitlines() if line.startswith("data: ")]
+    said = " ".join(e["text"] for e in of(ev, "message")).lower()
+    assert d["hint"]["merchant"].lower() not in said            # the bank says nothing about the charge
+    h = of(ev, "handoff")[0]["handoff"]                      # the specialist queue has the full case
+    assert h["case_type"] == "compliance_review"

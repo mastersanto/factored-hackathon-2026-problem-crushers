@@ -31,7 +31,7 @@ The `data` JSON always has a `type` field equal to the event name. Events arrive
 | `message` | `text`; `statements: [{text, basis, source}]` | What the customer reads, with the basis and source of every statement |
 | `candidates` | `items: [{option, transaction_id, when, amount, merchant, status}]` | Several charges match; the customer picks one by number |
 | `verdict` | `verdict` (`scam_asks_secret`, `bank_contact`, or `no_record`); `channel` | Result of the "is this really my bank?" check |
-| `handoff` | `handoff` (a full Handoff object) | A case was sent to a person |
+| `handoff` | `handoff: {case_id}` only | A case was sent to a person. The full handoff (case type, priority, risk estimate, security flags, internal notes) stays server-side and is available only from `GET /api/handoffs`. Streaming it would disclose internal assessments and, for compliance holds, tip off the customer. |
 | `error` | `code` (for example `session_expired`); `text` | The turn could not proceed. No data is returned. |
 | `done` | `stage`; `suggestions: string[] \| null` | End of turn. The quick replies for the assistant's question are in the customer's language; `null` means none. |
 
@@ -39,4 +39,4 @@ The `data` JSON always has a `type` field equal to the event name. Events arrive
 
 - **No other customer's data.** No event carries data belonging to anyone but the session's customer (constitution II).
 - **No unsourced facts.** Every `message.statements[*]` with basis `known` or `rule` has a non-empty `source`, and `message.text` contains no number absent from its statements (constitution III).
-- **Exactly one handoff per escalation.** A `handoff` event is emitted whenever a handoff is created, including the technical fallback.
+- **Exactly one handoff per escalation.** A `handoff` event is emitted whenever a handoff is created, including the technical fallback and compliance holds. It carries nothing but the case number.

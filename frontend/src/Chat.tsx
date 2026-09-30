@@ -82,7 +82,7 @@ function TurnView({ turn, onPick }: { turn: Turn; onPick: (v: string) => void })
           case 'verdict':
             return <div key={i} className={`verdict ${VERDICT[e.verdict].tone}`}>{VERDICT[e.verdict].label}</div>
           case 'handoff':
-            return <div key={i} className="handoff-note">Caso {e.handoff.case_id} enviado a un especialista · prioridad {e.handoff.priority}</div>
+            return <div key={i} className="handoff-note">Caso {e.handoff.case_id} enviado a un especialista</div>
           case 'error':
             return <div key={i} className="verdict bad">{e.text}</div>
           default:

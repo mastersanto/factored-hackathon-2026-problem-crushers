@@ -67,3 +67,33 @@ def test_model_alone_cannot_close_a_case():
     events = list(engine.handle(s, "mmm puede ser"))  # the model says "mine"; the rules do not
     assert s.stage == "confirm"
     assert any(e.get("action") == "reconfirm_before_closing" for e in events if e["type"] == "step")
+
+
+def _reviewed_charge(store):
+    """A recent, explainable charge on the synthetic compliance-review list (FR-018)."""
+    rows = store.query(
+        "SELECT t.customer_id, t.transaction_id, t.amount, t.merchant_name FROM compliance_reviews r "
+        "JOIN transactions t USING (transaction_id) JOIN customers c ON c.customer_id = t.customer_id "
+        "WHERE t.merchant_name IS NOT NULL AND c.customer_status = 'Active' AND t.transaction_date >= ? "
+        "AND t.transaction_type IN ('Purchase', 'Payment') ORDER BY t.transaction_id LIMIT 1",
+        [store.as_of.replace(day=1)])
+    assert rows, "the warehouse needs the synthetic compliance-review list (make data)"
+    return rows[0]
+
+
+def test_charge_under_compliance_review_is_never_explained():
+    engine, sessions = Engine(get_store(), HandoffQueue(Path(tempfile.mkdtemp()) / "h.jsonl"), None), SessionStore()
+    row = _reviewed_charge(engine.store)
+    s = sessions.create(banking.get_customer(engine.store, row["customer_id"]))
+    events = list(engine.handle(s, f"No reconozco un cargo de {row['amount']:.2f} en {row['merchant_name']}"))
+    messages = [e for e in events if e["type"] == "message"]
+    sources = [st.get("source") or "" for m in messages for st in m["statements"]]
+    text = " ".join(m["text"] for m in messages)
+    assert not any(row["transaction_id"] in src for src in sources)          # no fact about it is stated
+    assert row["merchant_name"] not in text and f"{row['amount']:,.2f}".split(".")[0].replace(",", ".") not in text
+    streamed = [e["handoff"] for e in events if e["type"] == "handoff"]
+    assert streamed == [{"case_id": streamed[0]["case_id"]}]                  # the customer gets only a case number
+    handoffs = [h for h in engine.handoffs.items if h["case_id"] == streamed[0]["case_id"]]
+    assert len(handoffs) == 1 and handoffs[0]["case_type"] == "compliance_review"
+    assert "review" not in text.lower() and "lavado" not in text.lower()  # no reason is given to the customer
+    assert s.stage == "closed"

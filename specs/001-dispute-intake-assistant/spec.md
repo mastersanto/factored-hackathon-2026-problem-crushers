@@ -254,6 +254,7 @@ Built as of 2026-09-30, all verified by tests and by the evaluation:
 
 - **Stories 1, 2, 3, 5, and 6** in Spanish, and **Story 4** in Portuguese.
 - **The fraud-risk estimate** (FR-016, SC-008).
+- **FR-018, demonstrated** with a labelled synthetic review list, since the data flags no charge as under review. A reviewed charge gets a neutral message and a `compliance_review` handoff. The customer's stream carries only the case number: no case type, priority, risk estimate, or internal trace. This is checked by tests and by the evaluation.
 - **The evaluation report** (FR-020). It shows SC-001 to SC-007 met on the held-out test.
 - **Quick replies** that match the assistant's question (FR-015).
 
@@ -264,4 +265,4 @@ Remaining:
 - **A written limitations and future-work section.**
 - **Slides and video** for the submission.
 - **Folding in the specialist's validation** of the legal rules, when it arrives.
-- **FR-018 is enforced as a policy but not exercised by the data**: the dataset flags no charge as under review. A synthetic test case would demonstrate it.
+- **Refreshed model-assisted evaluation.** FR-018 added a category, and the evaluation sets are now 180 cases each; the Claude-mode numbers in the success criteria come from the earlier 168-case run.

@@ -8,7 +8,7 @@ export type ChatEvent =
   | { type: 'message'; text: string; statements: Statement[] }
   | { type: 'candidates'; items: Candidate[] }
   | { type: 'verdict'; verdict: 'scam_asks_secret' | 'bank_contact' | 'no_record'; channel: string }
-  | { type: 'handoff'; handoff: Handoff }
+  | { type: 'handoff'; handoff: { case_id: string } }  // the customer sees only the case number
   | { type: 'error'; code: string; text: string }
   | { type: 'done'; stage: string; suggestions: string[] | null }
 

@@ -96,6 +96,9 @@ T = {
     "session_expired": {
         "es": "Su sesión expiró por seguridad. Vuelva a iniciar sesión para continuar.",
         "pt": "Sua sessão expirou por segurança. Faça login novamente para continuar."},
+    "compliance_neutral": {
+        "es": "Para este cargo necesito que lo atienda un especialista, que le contactará por los canales oficiales del banco (folio {case}). Por este medio no puedo darle más detalles sobre él. Si quiere revisar otro cargo, con gusto le ayudo.",
+        "pt": "Para esta cobrança preciso que um especialista atenda você; ele entrará em contato pelos canais oficiais do banco (protocolo {case}). Por aqui não consigo dar mais detalhes sobre ela. Se quiser revisar outra cobrança, fico à disposição."},
     "fallback": {
         "es": "Tuve un problema técnico al consultar sus datos. Para no darle información incorrecta, pasé su consulta a una persona (folio {case}).",
         "pt": "Tive um problema técnico ao consultar seus dados. Para não dar informação incorreta, passei sua consulta para uma pessoa (protocolo {case})."},

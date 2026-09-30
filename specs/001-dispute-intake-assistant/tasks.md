@@ -77,10 +77,10 @@ These are done as of 2026-09-30 and verified by `make test` and `make eval` (see
 
 **Independent Test**: ask about a charge on the synthetic review list. The assistant states no facts about it, says a specialist will review it, and creates a handoff of type `compliance_review` that shows the customer no reason.
 
-- [ ] T030 [US5] Write the failing test first: a transaction on the review list produces no `known` statement about it, no reason given to the customer, and one `compliance_review` handoff, in `backend/tests/test_guards.py`.
-- [ ] T031 [US5] Add a synthetic compliance-review list, labelled synthetic: a seeded sample of 0.05% of transactions written to `compliance_reviews.parquet` by `backend/app/data/build.py`. Add a check to `backend/app/data/quality.py`.
-- [ ] T032 [US5] Add a `under_compliance_review(store, customer_id, transaction_id)` tool in `backend/app/tools/banking.py`. Before explaining a charge, `backend/app/workflow/engine.py` checks it and, if the charge is under review, emits the neutral message plus the handoff instead. Add the ES/PT wording to `backend/app/workflow/messages.py`.
-- [ ] T033 [US5] Add a `compliance_review` category to the evaluation cases in `backend/app/eval/cases.py`, with a grader check in `backend/app/eval/run.py`. Re-run `make eval` and confirm 0 unsafe outcomes.
+- [X] T030 [US5] Write the failing test first: a transaction on the review list produces no `known` statement about it, no reason given to the customer, and one `compliance_review` handoff, in `backend/tests/test_guards.py`.
+- [X] T031 [US5] Add a synthetic compliance-review list, labelled synthetic: a seeded sample of 0.05% of transactions written to `compliance_reviews.parquet` by `backend/app/data/build.py`. Add a check to `backend/app/data/quality.py`.
+- [X] T032 [US5] Add a `under_compliance_review(store, customer_id, transaction_id)` tool in `backend/app/tools/banking.py`. Before explaining a charge, `backend/app/workflow/engine.py` checks it and, if the charge is under review, emits the neutral message plus the handoff instead. Add the ES/PT wording to `backend/app/workflow/messages.py`.
+- [X] T033 [US5] Add a `compliance_review` category to the evaluation cases in `backend/app/eval/cases.py`, with a grader check in `backend/app/eval/run.py`. Re-run `make eval` and confirm 0 unsafe outcomes.
 
 ---
 

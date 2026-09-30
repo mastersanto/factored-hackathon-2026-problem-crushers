@@ -106,3 +106,11 @@ def outbound_check(store: Store, customer_id: str, channel: str, around: datetim
         "ORDER BY contact_ts DESC LIMIT 3",
         [customer_id, *CHANNELS[channel], around - timedelta(days=2), around + timedelta(days=1)])
     return {"verdict": "bank_contact" if rows else "no_record", "matches": rows}
+
+
+def under_compliance_review(store: Store, customer_id: str, transaction_id: str) -> bool:
+    """FR-018: charges under anti-money-laundering review are never explained. The list is synthetic in this
+    dataset (see app.data.build); in production it would come from the compliance system."""
+    row = store.query_one("SELECT count(*) FROM compliance_reviews WHERE transaction_id = ? AND customer_id = ?",
+                          [transaction_id, customer_id])
+    return bool(row and row[0])

@@ -118,6 +118,10 @@ class Engine:
     def _step(self, name: str, **detail) -> dict:
         return {"type": "step", "step": name, **detail}
 
+    def _internal(self, name: str, **detail) -> dict:
+        """A trace step for staff and evaluation only; the API never streams it to the customer."""
+        return {"type": "step", "step": name, "internal": True, **detail}
+
     def _say(self, s: Session, statements: list[Statement], *, verify: bool = True) -> Iterator[dict]:
         """Verify statements, optionally let the LLM reword them, verify again, and emit."""
         problems = [st.text for st in statements if st.basis in ("known", "rule") and not st.source]
@@ -168,7 +172,7 @@ class Engine:
             case = _case_id()
             handoff = self.handoffs.add(self._handoff(s, case, "technical_fallback", open_questions=[f"System error: {type(exc).__name__}"]))
             yield self._step("escalate", reason="technical_fallback", case_id=case)
-            yield {"type": "handoff", "handoff": handoff}
+            yield self._handoff_event(handoff)
             yield from self._say(s, [Statement(text=M.t("fallback", s.lang, case=case), basis="rule", source="policy:safe-fallback")], verify=False)
         yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang)}
 
@@ -251,6 +255,9 @@ class Engine:
                 "status": tx["transaction_status"]}
 
     def _explain(self, s: Session, tx: dict) -> Iterator[dict]:
+        if banking.under_compliance_review(self.store, s.customer.customer_id, tx["transaction_id"]):
+            yield from self._compliance_hold(s, tx)
+            return
         s.tx, s.stage = tx, "confirm"
         lang, src = s.lang, f"transaction:{tx['transaction_id']}"
         product = M.PRODUCT_NAMES[lang].get(tx["product_type"], tx["product_type"])
@@ -276,12 +283,27 @@ class Engine:
         # Risk signal from the learned component (docs/model-card.md); an estimate, never a decision.
         p, flagged = self._risk(tx)
         tx["risk"] = {"probability": round(p, 4), "flagged": flagged, "model": self.fraud.name if self.fraud else "rule:fraud_score>=50"}
-        yield self._step("act", tool="fraud_risk", **tx["risk"])
+        yield self._internal("act", tool="fraud_risk", **tx["risk"])
         if flagged:
             statements.append(Statement(text=M.t("risk", lang), basis="guessed", source=f"model:{tx['risk']['model']}"))
         statements.append(Statement(text=M.t("ask_confirm", lang), basis="rule", source="flow"))
         yield self._step("decide", action="explain_transaction", transaction_id=tx["transaction_id"])
         yield from self._say(s, statements)
+
+    def _compliance_hold(self, s: Session, tx: dict) -> Iterator[dict]:
+        """FR-018 / constitution III: state nothing about the charge and give no reason (no tipping-off);
+        a specialist receives the case with the verified facts, which stay internal."""
+        s.tx, s.stage = tx, "closed"
+        case = _case_id()
+        yield self._internal("act", tool="compliance_review", under_review=True)
+        yield self._internal("decide", action="withhold_and_escalate")
+        handoff = self.handoffs.add(self._handoff(s, case, "compliance_review",
+                                                  open_questions=["Charge under compliance review: do not disclose the reason to the customer"]))
+        yield self._step("escalate", case_id=case)
+        yield self._internal("escalate", case_id=case, case_type="compliance_review", priority=handoff["priority"])
+        yield self._handoff_event(handoff)
+        yield from self._say(s, [Statement(text=M.t("compliance_neutral", s.lang, case=case), basis="rule",
+                                           source="policy:specialist-only")], verify=False)
 
     def _risk(self, tx: dict) -> tuple[float, bool]:
         if self.fraud:
@@ -308,8 +330,9 @@ class Engine:
             ] if missing])
         self.handoffs.add(handoff)
         s.stage = "closed"
-        yield self._step("escalate", case_id=case, case_type=case_type, priority=handoff["priority"])
-        yield {"type": "handoff", "handoff": handoff}
+        yield self._step("escalate", case_id=case)
+        yield self._internal("escalate", case_id=case, case_type=case_type, priority=handoff["priority"])
+        yield self._handoff_event(handoff)
         statements = [Statement(text=M.t("handoff_done", lang, case=case), basis="rule", source=f"handoff:{case}")]
         statements += [Statement(text=r.text[lang], basis="rule", source=f"rule:{r.id}") for r in rights]
         if case_type == "fraud_suspected":
@@ -357,12 +380,20 @@ class Engine:
         handoff["priority"] = "urgent"
         self.handoffs.add(handoff)
         s.stage = "closed"
-        yield self._step("escalate", case_id=case, case_type="fake_contact_secret_shared", priority="urgent")
-        yield {"type": "handoff", "handoff": handoff}
+        yield self._step("escalate", case_id=case, urgent=True)  # the customer is told it is urgent (freeze the card)
+        yield self._internal("escalate", case_id=case, case_type="fake_contact_secret_shared", priority="urgent")
+        yield self._handoff_event(handoff)
         st = st + [Statement(text=M.t("verdict_escalated", s.lang, case=case), basis="rule", source=f"handoff:{case}")]
         yield from self._say(s, st, verify=False)
 
     # ---- handoff ----------------------------------------------------------------------------
+    @staticmethod
+    def _handoff_event(handoff: dict) -> dict:
+        """What the customer's device receives: only the case number. The full handoff (case type, risk
+        estimate, security flags, internal notes) stays server-side for the specialist: sending it to the
+        browser would disclose internal assessments and, for compliance holds, tip off the customer."""
+        return {"type": "handoff", "handoff": {"case_id": handoff["case_id"]}}
+
     def _handoff(self, s: Session, case: str, case_type: str, **extra) -> dict:
         tx = s.tx
         priority = "high" if extra.get("shared_secret") or (tx and tx.get("risk", {}).get("flagged")) else "normal"

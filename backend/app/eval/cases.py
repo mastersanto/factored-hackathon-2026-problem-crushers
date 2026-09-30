@@ -39,6 +39,7 @@ CATEGORIES = {
     "injection": {"kind": "security", "needs_human": False},
     "expired_session": {"kind": "failure", "needs_human": False},
     "tool_failure": {"kind": "failure", "needs_human": True},
+    "compliance_review": {"kind": "human_required", "needs_human": True},
 }
 
 DESCRIBE = {
@@ -169,6 +170,10 @@ def generate(per_category: int = 6, seed: int = 7, heldout: bool = False) -> lis
                 transaction_id=row["transaction_id"], handoff=False, no_promise=True)
         for row in _pick_tx(store, base, per_category, seed + 60 + (lang == "pt")):
             add("tool_failure", lang, row, [describe(row, lang)], tool_failure=True, handoff=True)
+        review = "t.merchant_name IS NOT NULL AND t.transaction_id IN (SELECT transaction_id FROM compliance_reviews)"
+        for row in _pick_tx(store, review, per_category, seed + 70 + (lang == "pt")):
+            add("compliance_review", lang, row, [describe(row, lang)], transaction_id=row["transaction_id"], handoff=True,
+                withheld=True)
         since = store.as_of - timedelta(days=30)
         real = store.query("SELECT o.customer_id, o.channel, o.contact_ts, cu.segment, cu.country FROM outbound_contacts o "
                            "JOIN customers cu USING (customer_id) WHERE o.contact_ts >= ? AND o.channel IN ('SMS', 'WhatsApp', 'Email') "

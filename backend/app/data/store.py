@@ -9,7 +9,7 @@ import duckdb
 
 from app.config import settings
 
-TABLES = ["customers", "products", "transactions", "outbound_contacts", "complaints"]
+from app.data.build import TABLES  # noqa: E402  (single source of the table list)
 
 
 class Store:
