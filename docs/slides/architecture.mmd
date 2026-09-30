@@ -1,0 +1,14 @@
+flowchart TB
+    C["Customer<br/>ES / PT"] --> U["Understand<br/>Claude Haiku 4.5 · or rules"]
+    U --> D{"Decide<br/>state machine (code)"}
+    D --> A["Act · read-only tools<br/>transactions · outbound record<br/>card status · compliance holds<br/>country rules · fraud risk"]
+    A --> V["Verify<br/>sourced statements · faithfulness check<br/>Claude Sonnet 5.5 rewording"]
+    V --> C
+    D --> E["Escalate<br/>structured handoff"]
+    E --> S["Specialist queue"]
+    classDef model fill:#e3f4f5,stroke:#0b6e79,color:#1d2330;
+    classDef code fill:#ffffff,stroke:#52606d,color:#1d2330;
+    classDef person fill:#fff4d6,stroke:#9a6700,color:#1d2330;
+    class U,V model;
+    class D,A,E code;
+    class C,S person;

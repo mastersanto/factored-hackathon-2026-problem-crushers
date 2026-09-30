@@ -57,16 +57,22 @@ Required cases covered: **normal** (explain and close), **ambiguous** (clarify),
 
 ## 3. Architecture: code decides, models interpret
 
-- **A deterministic state machine** owns every step, tool, rule, and permission. **Claude Haiku 4.5** only interprets messages; **Claude Sonnet 5.5** only rewords verified facts.
+![bg right:36% contain](architecture.png)
+
+- **A deterministic state machine** owns every step, tool, rule, and permission.
+  - **Haiku 4.5** only interprets messages.
+  - **Sonnet 5.5** only rewords verified facts.
 - **Guarantees are enforced in code, not prompts**:
   - tools read only the **session's** customer;
-  - a **faithfulness check** discards rewordings that change or add numbers, or promise anything;
+  - a **faithfulness check** discards rewordings that change numbers or promise anything;
   - a **close guard** means a model can never close a fraud claim on its own;
-  - **compliance holds** are never explained, and the customer's device gets only a case number.
-- **Rules mode**: on a model failure, a refusal, or a spent budget, the same guarantees hold without the model.
-- **Data**: a minimized Parquet warehouse in DuckDB, with identity data dropped, card numbers cut to the last 4 digits, and 11 quality checks.
-- **Learned component**: a calibrated fraud-risk estimate against the bank's fixed threshold, on a time split, tracked in MLflow.
-- **Deployment**: one container on **Azure Container Apps**, with a private registry, the key as a secret, and scale to zero.
+  - **compliance holds** are never explained, and the customer gets only a case number.
+- **Rules mode** keeps the same guarantees without the model.
+- **Data**: a minimized Parquet warehouse (DuckDB) with 11 quality checks.
+- **Learned component**: a calibrated fraud-risk estimate, on a time split, tracked in MLflow.
+- **Deployment**: Azure Container Apps, with a private registry, the key as a secret, and scale to zero.
+
+<p class="small">Diagram: teal = a model is involved · white = code · yellow = people.</p>
 
 ---
 
