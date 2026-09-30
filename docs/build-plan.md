@@ -77,6 +77,20 @@ customer (web chat, ES/PT)
 - **A finding that changed the design**: comparing page content missed an edited character, because pages refer to glyphs by index. Verification compares the whole re-rendered file instead, so only the original download verifies.
 - **Added dependency not in the plan**: `python-multipart`, which FastAPI needs for the upload endpoint.
 
+### UI improvements (feature 003, 2026-09-30)
+
+- **The owner's request**: the chat's fixed texts follow the conversation's language, clearer source labels, a phone-width layout, and accessibility.
+- **Visual reference**: the owner's approved Claude Design prototype, "Bóveda", exported to `specs/003-ui-improvements/design/`.
+- **Decisions** (details in `specs/003-ui-improvements/research.md`):
+  - frontend only, with no API, workflow, or PDF change;
+  - a typed two-language dictionary instead of an i18n library;
+  - statements show one per line only when the text is the template wording, and a reworded answer shows as a paragraph plus its sources;
+  - the case card shows only the case number, never a deadline copied from text;
+  - the JSON trace becomes five plain steps, with the raw trace one tap away;
+  - fonts and icons are self-hosted;
+  - acceptance by Playwright screenshots at 1200 and 375 px, plus axe.
+- **Not built from the prototype**, because each needs a workflow or API change: "Hablar con una persona", "Ninguno de estos cargos", "Tomar caso", full name and card on sign-in, the deadline in the case card, and a new PDF layout.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

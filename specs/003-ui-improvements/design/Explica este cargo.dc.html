@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>body{margin:0; background:#E4E7EB} a{color:#0B6E79} a:hover{color:#08545D}</style>
+</helmet>
+<div style="--bg:#F8F9FA; --surface:#FFFFFF; --surface-2:#F1F4F7; --text:#0D1B2A; --muted:#4A5568; --border:#DCE2E6; --border-strong:#0F2A4A; --accent:#0B6E79; --accent-hover:#08545D; --on-accent:#FFFFFF; --accent-soft:#E0F2F1; --good:#1B5E20; --good-soft:#E8F5E9; --warn:#8A5A00; --warn-soft:#FFF8E1; --bad:#B42318; --bad-soft:#FDECEA; --bubble-customer:#0F2A4A; --bubble-customer-text:#FFFFFF; --brand-navy:#0F2A4A; --brand-navy-deep:#0A1F38; --on-brand:#FFFFFF; --on-brand-muted:#B0C8F0; --trust-gold:#C9A227; --focus-ring:#0B6E79; --skeleton:#E6EAEE; --font-sans:'IBM Plex Sans',system-ui,sans-serif; --font-mono:'JetBrains Mono',ui-monospace,monospace; --radius:8px; background:#E4E7EB; font-family:'IBM Plex Sans',system-ui,sans-serif; color:#0D1B2A; padding:64px; display:flex; flex-direction:column; gap:96px; width:max-content">
+
+  <section style="display:flex; flex-direction:column; gap:12px; max-width:1100px">
+    <span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">LATAM Bank · Bóveda</span>
+    <h1 style="margin:0; font-size:48px; font-weight:600; letter-spacing:-.02em">Explica este cargo</h1>
+    <p style="margin:0; font-size:20px; color:#4A5568; max-width:900px; text-wrap:pretty">Todas las pantallas en escritorio (1200) y móvil (390), claro y oscuro. Los datos de los mensajes son ejemplos: en la app vienen de los registros, con su fuente. Tokens listos en <a href="handoff/tokens.css">handoff/tokens.css</a>.</p>
+  </section>
+
+  <!-- 1 · Tokens + components -->
+  <section id="tokens" style="display:flex; flex-direction:column; gap:24px">
+    <h2 style="margin:0; font-size:32px; font-weight:600">1 · Tokens y componentes</h2>
+    <div style="display:flex; gap:48px; align-items:flex-start">
+      <div style="width:760px; background:#FFFFFF; border:1px solid #C9CFD6; padding:32px; display:flex; flex-direction:column; gap:16px">
+        <h3 style="margin:0; font-size:20px; font-weight:600">Tokens (CSS custom properties)</h3>
+        <table style="border-collapse:collapse; font-size:13px">
+          <thead><tr style="text-align:left; color:#4A5568"><th style="padding:6px 8px; font-weight:500; border-bottom:1px solid #DCE2E6">Token</th><th style="padding:6px 8px; font-weight:500; border-bottom:1px solid #DCE2E6">Claro</th><th style="padding:6px 8px; font-weight:500; border-bottom:1px solid #DCE2E6">Oscuro</th><th style="padding:6px 8px; font-weight:500; border-bottom:1px solid #DCE2E6">Uso</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ tokens }}" as="t" hint-placeholder-count="20">
+              <tr>
+                <td style="padding:6px 8px; border-bottom:1px solid #EEF1F4; font-family:'JetBrains Mono',monospace">{{ t.name }}</td>
+                <td style="padding:6px 8px; border-bottom:1px solid #EEF1F4"><span style="display:inline-flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace"><span style="width:20px; height:20px; border-radius:4px; border:1px solid #C9CFD6; background:{{ t.l }}"></span>{{ t.l }}</span></td>
+                <td style="padding:6px 8px; border-bottom:1px solid #EEF1F4"><span style="display:inline-flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace"><span style="width:20px; height:20px; border-radius:4px; border:1px solid #C9CFD6; background:{{ t.d }}"></span>{{ t.d }}</span></td>
+                <td style="padding:6px 8px; border-bottom:1px solid #EEF1F4; color:#4A5568">{{ t.use }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+        <p style="margin:0; font-size:13px; color:#4A5568">También: <span style="font-family:'JetBrains Mono',monospace">--font-sans</span> IBM Plex Sans · <span style="font-family:'JetBrains Mono',monospace">--font-mono</span> JetBrains Mono · <span style="font-family:'JetBrains Mono',monospace">--radius</span> 8px · <span style="font-family:'JetBrains Mono',monospace">--radius-sm</span> 4px · <span style="font-family:'JetBrains Mono',monospace">--tap</span> 44px. Foco: 2px <span style="font-family:'JetBrains Mono',monospace">--focus-ring</span>, offset 2px. Sin sombras, sin píldoras.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">Componentes · Claro</span><div style="width:1200px; border:1px solid #C9CFD6"><dc-import name="Components" hint-size="1200px,1500px"></dc-import></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">Componentes · Oscuro</span><div style="width:1200px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Components" hint-size="1200px,1500px"></dc-import></div></div>
+    </div>
+  </section>
+
+  <!-- 2 · Login -->
+  <section id="login" style="display:flex; flex-direction:column; gap:32px">
+    <h2 style="margin:0; font-size:32px; font-weight:600">2 · Inicio de sesión de prueba</h2>
+    <sc-for list="{{ loginRows }}" as="r" hint-placeholder-count="3">
+      <div style="display:flex; gap:48px; align-items:flex-start">
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Escritorio · Claro</span><div style="width:1200px; border:1px solid #C9CFD6"><dc-import name="Screen Login" state="{{ r.state }}" rules="{{ r.rules }}" hint-size="1200px,760px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Escritorio · Oscuro</span><div style="width:1200px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Screen Login" state="{{ r.state }}" rules="{{ r.rules }}" hint-size="1200px,760px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Móvil · Claro</span><div style="width:390px; border:1px solid #C9CFD6"><dc-import name="Screen Login" state="{{ r.state }}" rules="{{ r.rules }}" mobile="{{ true }}" hint-size="390px,1400px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Móvil · Oscuro</span><div style="width:390px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Screen Login" state="{{ r.state }}" rules="{{ r.rules }}" mobile="{{ true }}" hint-size="390px,1400px"></dc-import></div></div>
+      </div>
+    </sc-for>
+  </section>
+
+  <!-- 3 · Chat -->
+  <section id="chat" style="display:flex; flex-direction:column; gap:32px">
+    <h2 style="margin:0; font-size:32px; font-weight:600">3 · Chat del cliente</h2>
+    <sc-for list="{{ chatRows }}" as="r" hint-placeholder-count="7">
+      <div style="display:flex; gap:48px; align-items:flex-start">
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Escritorio · Claro</span><div style="width:1200px; border:1px solid #C9CFD6"><dc-import name="Screen Chat" outcome="{{ r.o }}" source-open="{{ r.src }}" hint-size="1200px,1300px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Escritorio · Oscuro</span><div style="width:1200px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Screen Chat" outcome="{{ r.o }}" hint-size="1200px,1300px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Móvil · Claro</span><div style="width:390px; border:1px solid #C9CFD6"><dc-import name="Screen Chat" outcome="{{ r.o }}" mobile="{{ true }}" drawer-open="{{ r.drawer }}" hint-size="390px,1900px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Móvil · Oscuro</span><div style="width:390px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Screen Chat" outcome="{{ r.o }}" mobile="{{ true }}" hint-size="390px,1900px"></dc-import></div></div>
+      </div>
+    </sc-for>
+  </section>
+
+  <!-- 4 · Specialist -->
+  <section id="especialista" style="display:flex; flex-direction:column; gap:32px">
+    <h2 style="margin:0; font-size:32px; font-weight:600">4 · Cola del especialista</h2>
+    <sc-for list="{{ specRows }}" as="r" hint-placeholder-count="2">
+      <div style="display:flex; gap:48px; align-items:flex-start">
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Escritorio · Claro</span><div style="width:1200px; border:1px solid #C9CFD6"><dc-import name="Screen Specialist" empty="{{ r.empty }}" verify="{{ r.verify }}" hint-size="1200px,1600px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Escritorio · Oscuro</span><div style="width:1200px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Screen Specialist" empty="{{ r.empty }}" verify="{{ r.verify }}" hint-size="1200px,1600px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Móvil · Claro</span><div style="width:390px; border:1px solid #C9CFD6"><dc-import name="Screen Specialist" empty="{{ r.empty }}" verify="{{ r.verify }}" mobile="{{ true }}" hint-size="390px,2800px"></dc-import></div></div>
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ r.label }} · Móvil · Oscuro</span><div style="width:390px; border:1px solid #C9CFD6; --bg:#0F1216; --surface:#171B21; --surface-2:#1E232B; --text:#E6E8EB; --muted:#98A2B3; --border:#2A3039; --border-strong:#8B95A5; --accent:#4FB3BD; --accent-hover:#6CC4CD; --on-accent:#0F1216; --accent-soft:#15343A; --good:#5CC98F; --good-soft:#143322; --warn:#E8B64C; --warn-soft:#3A2E10; --bad:#F47067; --bad-soft:#3D1A17; --bubble-customer:#1F3A5C; --bubble-customer-text:#E6E8EB; --trust-gold:#D4B04A; --focus-ring:#4FB3BD; --skeleton:#242A33; color-scheme:dark"><dc-import name="Screen Specialist" empty="{{ r.empty }}" verify="{{ r.verify }}" mobile="{{ true }}" hint-size="390px,2800px"></dc-import></div></div>
+      </div>
+    </sc-for>
+    <div style="display:flex; gap:48px; align-items:flex-start">
+      <sc-for list="{{ verifyStates }}" as="v" hint-placeholder-count="3">
+        <div style="display:flex; flex-direction:column; gap:10px"><span style="font-family:'JetBrains Mono',monospace; font-size:14px; color:#4A5568">{{ v.label }} · Escritorio · Claro</span><div style="width:1200px; border:1px solid #C9CFD6"><dc-import name="Screen Specialist" empty="{{ true }}" verify="{{ v.verify }}" hint-size="1200px,640px"></dc-import></div></div>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- 5 · PDF -->
+  <section id="pdf" style="display:flex; flex-direction:column; gap:32px">
+    <h2 style="margin:0; font-size:32px; font-weight:600">5 · Copia PDF del cliente (A4)</h2>
+    <div style="display:flex; gap:48px; align-items:flex-start">
+      <div style="border:1px solid #C9CFD6; width:794px"><dc-import name="PDF Copy" hint-size="794px,1123px"></dc-import></div>
+      <ul style="margin:0; padding-left:20px; font-size:18px; color:#4A5568; max-width:520px; display:flex; flex-direction:column; gap:8px">
+        <li>Siempre en claro: es un documento para imprimir.</li>
+        <li>Solo contiene lo que el cliente vio; nunca puntajes internos.</li>
+        <li>Tarjetas y códigos que el cliente escribió van enmascarados.</li>
+        <li>Sin hashes: solo el código de verificación.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      tokens: [
+        { name: '--bg', l: '#F8F9FA', d: '#0F1216', use: 'Fondo de página' },
+        { name: '--surface', l: '#FFFFFF', d: '#171B21', use: 'Tarjetas, paneles' },
+        { name: '--surface-2', l: '#F1F4F7', d: '#1E232B', use: 'Burbuja del asistente, zonas' },
+        { name: '--text', l: '#0D1B2A', d: '#E6E8EB', use: 'Texto' },
+        { name: '--muted', l: '#4A5568', d: '#98A2B3', use: 'Texto secundario (AA)' },
+        { name: '--border', l: '#DCE2E6', d: '#2A3039', use: 'Bordes 1px' },
+        { name: '--border-strong', l: '#0F2A4A', d: '#8B95A5', use: 'Hover de contorno' },
+        { name: '--accent', l: '#0B6E79', d: '#4FB3BD', use: 'Acciones, enlaces, foco' },
+        { name: '--accent-hover', l: '#08545D', d: '#6CC4CD', use: 'Hover de acciones' },
+        { name: '--on-accent', l: '#FFFFFF', d: '#0F1216', use: 'Texto sobre acento' },
+        { name: '--accent-soft', l: '#E0F2F1', d: '#15343A', use: 'Paso actual, POLÍTICA' },
+        { name: '--good', l: '#1B5E20', d: '#5CC98F', use: 'VERIFICADO, contacto real' },
+        { name: '--good-soft', l: '#E8F5E9', d: '#143322', use: 'Fondo positivo' },
+        { name: '--warn', l: '#8A5A00', d: '#E8B64C', use: 'ESTIMACIÓN, sin registro' },
+        { name: '--warn-soft', l: '#FFF8E1', d: '#3A2E10', use: 'Fondo de aviso' },
+        { name: '--bad', l: '#B42318', d: '#F47067', use: 'Estafa, alterado, urgente' },
+        { name: '--bad-soft', l: '#FDECEA', d: '#3D1A17', use: 'Fondo de alerta' },
+        { name: '--bubble-customer', l: '#0F2A4A', d: '#1F3A5C', use: 'Burbuja del cliente' },
+        { name: '--bubble-customer-text', l: '#FFFFFF', d: '#E6E8EB', use: 'Texto burbuja cliente' },
+        { name: '--brand-navy', l: '#0F2A4A', d: '#0F2A4A', use: 'Cabecera' },
+        { name: '--brand-navy-deep', l: '#0A1F38', d: '#0A1F38', use: 'Franja de seguridad' },
+        { name: '--on-brand-muted', l: '#B0C8F0', d: '#B0C8F0', use: 'Texto secundario en cabecera' },
+        { name: '--trust-gold', l: '#C9A227', d: '#D4B04A', use: 'Solo sellos de confianza' },
+        { name: '--focus-ring', l: '#0B6E79', d: '#4FB3BD', use: 'Anillo de foco 2px' },
+        { name: '--skeleton', l: '#E6EAEE', d: '#242A33', use: 'Carga' },
+      ],
+      loginRows: [
+        { label: '2a · Lista', state: 'ready', rules: false },
+        { label: '2b · Cargando (modo reglas)', state: 'loading', rules: true },
+        { label: '2c · Error de API', state: 'error', rules: false },
+      ],
+      chatRows: [
+        { label: '3a · Cargo explicado', o: 'a', src: true, drawer: true },
+        { label: '3b · Reclamo enviado', o: 'b', src: false, drawer: false },
+        { label: '3c · Contacto real (PT)', o: 'c-good', src: false, drawer: false },
+        { label: '3d · Sin registro', o: 'c-warn', src: false, drawer: false },
+        { label: '3e · Estafa + escribiendo', o: 'c-bad', src: false, drawer: false },
+        { label: '3f · Rechazo', o: 'd', src: false, drawer: false },
+        { label: '3g · Sesión expirada', o: 'expired', src: false, drawer: false },
+      ],
+      specRows: [
+        { label: '4a · Cola + PDF coincide', empty: false, verify: 'match' },
+        { label: '4b · Vacía', empty: true, verify: 'none' },
+      ],
+      verifyStates: [
+        { label: '4c · PDF alterado', verify: 'altered' },
+        { label: '4d · Versión desconocida', verify: 'unknown' },
+        { label: '4e · No legible', verify: 'unreadable' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

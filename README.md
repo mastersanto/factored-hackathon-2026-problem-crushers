@@ -60,6 +60,7 @@ flowchart LR
   - the customer's device receives only a case number, never internal assessments.
 - **The customer's copy**: the conversation downloads as a PDF with a **check code**. It is built only from what the customer was shown, with any card numbers and codes they typed masked, and it never calls a model. The bank keeps only a keyed fingerprint, never the text. Only the original file verifies: an edited or re-saved copy is reported as altered ([`specs/002-chat-transcript-pdf/`](specs/002-chat-transcript-pdf/)).
 - **Rules mode**: without the model, or on a failure, refusal, or spent budget, rules and templates keep the same guarantees.
+- **Interface**: the chat's fixed texts follow the customer's language (Spanish or Portuguese), every source label names its kind in words with its reference visible, and the app works from 360 px wide, by keyboard and with screen readers (WCAG 2.1 AA, checked with axe) ([`specs/003-ui-improvements/`](specs/003-ui-improvements/)).
 - **Data**: a Parquet warehouse in DuckDB, built from the organizers' dataset with data minimization and 11 quality checks.
 - **Learned component**: an isotonic calibration of the bank's detector score, compared against its fixed threshold on a time split and tracked in MLflow.
 - **Deployment**: one container (FastAPI serving the React app) on Azure Container Apps, with a private registry, the key as a secret, scale to zero, and abuse and cost guards.
@@ -77,6 +78,8 @@ make model   # fraud-risk candidates, time split, MLflow (about 10 s)
 make test    # workflow, guard, and security tests (rules only, no LLM calls)
 make eval    # held-out case sets in rules mode, then docs/evaluation.md
 make dev     # API on :8000 and web app on http://localhost:5173
+# UI checks (Playwright + axe, rules mode): see specs/003-ui-improvements/quickstart.md
+# SESSIONS_PER_IP_HOUR=1000 LLM_DISABLED=1 make dev, then: cd frontend && npm run check:ui
 ```
 
 Settings live in `.env.local`, which is git-ignored: copy it from `.env.example`. Without `ANTHROPIC_API_KEY`, everything runs in rules mode. `make eval-llm` evaluates with Claude, at about $0.60 per set.
@@ -112,3 +115,4 @@ See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what th
 | [`docs/video-script.md`](docs/video-script.md) | The demo video's script |
 | [`specs/001-dispute-intake-assistant/`](specs/001-dispute-intake-assistant/) | Spec, plan, research, data model, API contract, quickstart, tasks |
 | [`specs/002-chat-transcript-pdf/`](specs/002-chat-transcript-pdf/) | The transcript PDF with a check code: spec, plan, research (including why only the original file verifies), contract, tasks |
+| [`specs/003-ui-improvements/`](specs/003-ui-improvements/) | The interface in the customer's language, clearer source labels, phone width, and accessibility: spec, plan, research, the approved design prototype, UI contract, tasks |

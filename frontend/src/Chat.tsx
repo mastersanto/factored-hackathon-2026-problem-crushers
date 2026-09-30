@@ -1,117 +1,187 @@
-import { useEffect, useRef, useState } from 'react'
-import { downloadTranscript, HttpError, type ChatEvent, type Lang, type Statement } from './api'
-import { useChat, type Turn } from './useChat'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { downloadTranscript, HttpError, type ChatEvent, type Lang } from './api'
+import { CandidateList } from './components/CandidateList'
+import { CaseCard } from './components/CaseCard'
+import { Statements } from './components/Statements'
+import { StepsPanel } from './components/StepsPanel'
+import { VerdictCard } from './components/VerdictCard'
+import { BOTH_LANGUAGES, TEXT } from './i18n'
+import { Icon } from './icons'
+import { formatTime, stepProgress, useChat, type Turn } from './useChat'
 
-const BASIS_LABEL: Record<Statement['basis'], string> = { known: 'verificado', guessed: 'estimación', rule: 'política' }
-const VERDICT: Record<string, { label: string; tone: string }> = {
-  scam_asks_secret: { label: 'Estafa: pidió un código', tone: 'bad' },
-  no_record: { label: 'Sin registro del banco', tone: 'warn' },
-  bank_contact: { label: 'Contacto real del banco', tone: 'good' },
+interface Props {
+  sessionId: string
+  conversationRef: string
+  firstName: string
+  country: string
+  suggestions: string[]
+  onChangeCustomer: () => void
+  onLang: (lang: Lang) => void
 }
 
-// Transcript download texts, following the language of the latest reply (specs/002, FR-109).
-const PDF_TEXT: Record<Lang, { button: string; saved: string; expired: string; failed: string; hint: string }> = {
-  es: { button: 'Descargar conversación (PDF)', saved: 'Descargado · código de verificación', expired: 'Sesión expirada; inicie sesión de nuevo',
-        failed: 'No se pudo generar el PDF', hint: 'Puede descargar una copia de esta conversación' },
-  pt: { button: 'Baixar conversa (PDF)', saved: 'Baixado · código de verificação', expired: 'Sessão expirada; entre novamente',
-        failed: 'Não foi possível gerar o PDF', hint: 'Você pode baixar uma cópia desta conversa' },
-}
-
-export function Chat({ sessionId, conversationRef, firstName, suggestions }:
-  { sessionId: string; conversationRef: string; firstName: string; suggestions: string[] }) {
-  const { turns, busy, stage, replies, lang, completed, send } = useChat(sessionId)
+/** The customer's chat (specs/003 design, "Screen Chat"). Every fixed text follows the language of the latest
+ *  assistant message (FR-201); what the assistant says is shown exactly as the server streamed it. */
+export function Chat({ sessionId, conversationRef, firstName, country, suggestions, onChangeCustomer, onLang }: Props) {
+  const { turns, busy, replies, lang, completed, send } = useChat(sessionId)
+  const t = TEXT[lang]
   const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
-  const t = PDF_TEXT[lang]
+  const [pdfExpired, setPdfExpired] = useState(false)
+  const [text, setText] = useState('')
+  const input = useRef<HTMLInputElement>(null)
+  const end = useRef<HTMLDivElement>(null)
+  const typed = useRef(false)
+
+  useEffect(() => { onLang(lang) }, [lang, onLang])
+  useEffect(() => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    end.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'end' })
+  }, [turns])
+  // After a typed message, focus returns to the text box once the reply is in (FR-212).
+  useEffect(() => { if (!busy && typed.current) { typed.current = false; input.current?.focus() } }, [busy])
+
+  const lastAssistant = [...turns].reverse().find((x) => x.role === 'assistant')
+  const ended = pdfExpired || !!lastAssistant?.events.some((e) => e.type === 'error' && (e.code === 'session_expired' || e.code === 'turn_limit'))
+  const endedText = lastAssistant?.events.find((e): e is Extract<ChatEvent, { type: 'error' }> =>
+    e.type === 'error' && (e.code === 'session_expired' || e.code === 'turn_limit'))?.text ?? t.session.expiredBody
+
   const download = async () => {
     try {
       const code = await downloadTranscript(sessionId, conversationRef)
-      setPdf({ tone: 'good', text: `${t.saved}: ${code}` })
+      setPdf({ tone: 'good', text: `${t.pdf.saved}: ${code}` })
     } catch (err) {
-      setPdf({ tone: 'bad', text: err instanceof HttpError && err.status === 401 ? t.expired : `${t.failed} (${String(err)})` })
+      if (err instanceof HttpError && err.status === 401) { setPdfExpired(true); setPdf({ tone: 'bad', text: t.pdf.expired }) }
+      else setPdf({ tone: 'bad', text: `${t.pdf.failed} (${String(err)})` })
     }
   }
-  const chips = replies ?? suggestions
-  const [text, setText] = useState('')
-  const end = useRef<HTMLDivElement>(null)
-  useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [turns])
-
-  const submit = (value: string) => { void send(value); setText('') }
-  const lastSteps = [...turns].reverse().find((t) => t.role === 'assistant')?.events.filter((e) => e.type === 'step') ?? []
+  const submit = (value: string, fromComposer = false) => {
+    if (!value.trim() || busy) return
+    typed.current = fromComposer
+    void send(value)
+    setText('')
+  }
 
   return (
-    <div className="chat-layout">
-      <section className="chat">
-        <div className="chat-tools">
-          <button className="link" disabled={busy || !completed} onClick={() => void download()}>{t.button}</button>
-          {pdf && <span className={`small ${pdf.tone}`}>{pdf.text}</span>}
+    <>
+      <section className="panel customer-bar" aria-label={t.aria.customer}>
+        <div className="cb-who">
+          <span className="avatar navy" aria-hidden="true">{firstName.slice(0, 1).toUpperCase()}</span>
+          <div className="cb-name"><strong>{firstName}</strong><span className="muted small">{country}</span></div>
+          <button type="button" className="link-btn" onClick={onChangeCustomer}>{t.session.change}</button>
         </div>
-        <div className="messages">
-          {turns.length === 0 && <p className="muted">Sesión iniciada como {firstName}. Escriba su consulta o use un ejemplo.</p>}
-          {turns.map((turn, i) => <TurnView key={i} turn={turn} onPick={submit} hint={t.hint} />)}
-          {busy && <div className="typing">…</div>}
-          <div ref={end} />
+        <div className="cb-pdf">
+          <button type="button" className="btn" disabled={busy || !completed || ended} onClick={() => void download()}
+            aria-describedby={!completed ? 'pdf-not-yet' : undefined}>
+            <Icon name="download" />{t.pdf.button}
+          </button>
+          {!completed && <span id="pdf-not-yet" className="muted small">{t.pdf.notYet}</span>}
+          <span role="status" className={pdf?.tone}>{pdf && <><Icon name={pdf.tone === 'good' ? 'task_alt' : 'block'} size={18} />{pdf.text}</>}</span>
         </div>
-        <div className={`suggestions${replies ? ' replies' : ''}`}>
-          {chips.map((s) => <button key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
-        </div>
-        <form className="composer" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Escriba en español o português…" disabled={busy} />
-          <button type="submit" disabled={busy || !text.trim()}>Enviar</button>
-        </form>
       </section>
-      <aside className="trace">
-        <h3>Flujo del último turno</h3>
-        <p className="muted small">etapa: {stage}</p>
-        <ol>
-          {lastSteps.map((e, i) => {
-            const { type: _t, step, ...rest } = e as Extract<ChatEvent, { type: 'step' }>
-            return <li key={i}><strong>{String(step)}</strong> <code>{JSON.stringify(rest)}</code></li>
-          })}
-        </ol>
-      </aside>
-    </div>
+
+      <StepsPanel variant="drawer" progress={stepProgress(turns)} trace={lastAssistant?.events ?? []} lang={lang} />
+
+      <div className="chat-grid">
+        <section className="panel conversation" aria-label={t.aria.messages}>
+          <div className="log" role="log" aria-live="polite" aria-label={t.aria.messages}>
+            <div className="intro"><p>{t.intro(firstName)}</p><p>{BOTH_LANGUAGES}</p></div>
+            {turns.map((turn, i) => (
+              <TurnView key={i} turn={turn} next={turns[i + 1]} country={country} busy={busy} onPick={(v) => submit(v)} />
+            ))}
+            {busy && (
+              <div className="typing">
+                <span className="avatar navy" aria-hidden="true"><Icon name="account_balance" size={18} /></span>
+                <div className="typing-bubble"><span className="dots" aria-hidden="true"><span /><span /><span /></span>{t.typing}</div>
+              </div>
+            )}
+            <div ref={end} />
+          </div>
+
+          {!ended && (replies
+            ? <div className="chips replies" role="group" aria-label={t.aria.replies}>
+                {replies.map((s) => <button type="button" key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
+              </div>
+            : <div className="chips" role="group" aria-label={t.aria.examples}>
+                {suggestions.map((s) => <button type="button" key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
+              </div>)}
+
+          {ended
+            ? <div className="session-ended" role="alert">
+                <Icon name="schedule" size={26} />
+                <div><strong>{t.session.expiredTitle}</strong><span className="muted small">{endedText}</span></div>
+                <button type="button" className="btn btn-primary" onClick={onChangeCustomer}>{t.session.restart}</button>
+              </div>
+            : <form className="composer" onSubmit={(e) => { e.preventDefault(); submit(text, true) }}>
+                <label htmlFor="composer-input" className="sr-only">{t.composer.label}</label>
+                <input id="composer-input" ref={input} value={text} onChange={(e) => setText(e.target.value)}
+                  placeholder={t.composer.placeholder} disabled={busy} autoComplete="off" />
+                <button type="submit" className="btn btn-primary" disabled={busy || !text.trim()}>{t.composer.send}<Icon name="send" size={18} /></button>
+              </form>}
+        </section>
+
+        <StepsPanel variant="rail" progress={stepProgress(turns)} trace={lastAssistant?.events ?? []} lang={lang} />
+      </div>
+    </>
   )
 }
 
-function TurnView({ turn, onPick, hint }: { turn: Turn; onPick: (v: string) => void; hint: string }) {
-  if (turn.role === 'customer') return <div className="bubble customer">{turn.text}</div>
+/** One turn. Assistant events are shown in the order the server streamed them; a verdict wraps the message that
+ *  follows it, and a charge list shows which option the customer picked next. */
+function TurnView({ turn, next, country, busy, onPick }:
+  { turn: Turn; next: Turn | undefined; country: string; busy: boolean; onPick: (v: string) => void }) {
+  const t = TEXT[turn.lang]
+  const time = formatTime(turn.at, country)
+  if (turn.role === 'customer') {
+    return (
+      <div className="msg customer" lang={turn.lang}>
+        <div className="bubble">{turn.text}</div>
+        <span className="msg-time">{time}</span>
+      </div>
+    )
+  }
+  const blocks: ReactNode[] = []
+  const events = turn.events
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]
+    switch (e.type) {
+      case 'message':
+        blocks.push(<div key={i} className="bubble-bot"><Statements text={e.text} statements={e.statements} lang={turn.lang} /></div>)
+        break
+      case 'verdict': {
+        const m = events[i + 1]?.type === 'message' ? events[i + 1] as Extract<ChatEvent, { type: 'message' }> : null
+        blocks.push(
+          <VerdictCard key={i} verdict={e.verdict} lang={turn.lang}>
+            {m && <Statements text={m.text} statements={m.statements} lang={turn.lang} />}
+          </VerdictCard>,
+        )
+        if (m) i++
+        break
+      }
+      case 'candidates': {
+        const choice = next?.role === 'customer' ? Number(next.text?.trim()) : NaN
+        const picked = e.items.some((c) => c.option === choice) ? choice : null
+        blocks.push(<CandidateList key={i} items={e.items} lang={turn.lang} picked={picked} disabled={busy} onPick={onPick} />)
+        break
+      }
+      case 'handoff':
+        blocks.push(<CaseCard key={i} caseId={e.handoff.case_id} lang={turn.lang} time={time} />)
+        break
+      case 'error':
+        // An ended session is shown once, in place of the composer.
+        if (e.code !== 'session_expired' && e.code !== 'turn_limit') blocks.push(<div key={i} className="error-line">{e.text}</div>)
+        break
+      default:
+        break
+    }
+  }
+  if (!blocks.length) return null
+  const done = events.some((e) => e.type === 'done')
   return (
-    <div className="assistant">
-      {turn.events.map((e, i) => {
-        switch (e.type) {
-          case 'message':
-            return (
-              <div key={i} className="bubble bot">
-                <p>{e.text}</p>
-                <ul className="statements">
-                  {e.statements.map((s, j) => (
-                    <li key={j} className={`basis-${s.basis}`} title={s.source ?? ''}>
-                      <span className="badge">{BASIS_LABEL[s.basis]}</span>{s.source && <span className="source">{s.source}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )
-          case 'candidates':
-            return (
-              <div key={i} className="candidates">
-                {e.items.map((c) => (
-                  <button key={c.option} onClick={() => onPick(String(c.option))}>
-                    <strong>{c.option}.</strong> {c.amount} · {c.merchant} · {c.when} {c.status === 'Pending' && <em>(pendiente)</em>}
-                  </button>
-                ))}
-              </div>
-            )
-          case 'verdict':
-            return <div key={i} className={`verdict ${VERDICT[e.verdict].tone}`}>{VERDICT[e.verdict].label}</div>
-          case 'handoff':
-            return <div key={i} className="handoff-note">Caso {e.handoff.case_id} enviado a un especialista<br /><span className="muted small">{hint}</span></div>
-          case 'error':
-            return <div key={i} className="verdict bad">{e.text}</div>
-          default:
-            return null
-        }
-      })}
+    <div className="msg assistant" lang={turn.lang}>
+      <span className="avatar navy" aria-hidden="true"><Icon name="account_balance" size={18} /></span>
+      <div className="msg-body">
+        {blocks}
+        {done && <span className="msg-time">{time} · {t.assistant}</span>}
+      </div>
     </div>
   )
 }

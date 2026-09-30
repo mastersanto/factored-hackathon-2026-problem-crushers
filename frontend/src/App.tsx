@@ -1,63 +1,118 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AgentQueue } from './AgentQueue'
-import { api, type DemoCustomer } from './api'
+import { api, type DemoCustomer, type Lang } from './api'
 import { Chat } from './Chat'
+import { TEXT } from './i18n'
+import { Icon } from './icons'
 
 type View = 'customer' | 'agent'
+interface Session { id: string; conversationRef: string; customer: DemoCustomer }
 
 export default function App() {
   const [view, setView] = useState<View>('customer')
-  const [session, setSession] = useState<{ id: string; conversationRef: string; customer: DemoCustomer } | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  // The conversation's language, reported by the chat. Sign-in and the specialist view are in Spanish (FR-203).
+  const [chatLang, setChatLang] = useState<Lang>('es')
   const health = useQuery({ queryKey: ['health'], queryFn: api.health })
+  const lang: Lang = view === 'customer' && session ? chatLang : 'es'
+  useEffect(() => { document.documentElement.lang = lang }, [lang])
+  const onLang = useCallback((l: Lang) => setChatLang(l), [])
+  const leave = useCallback(() => { setSession(null); setChatLang('es') }, [])
 
   return (
     <div className="app">
-      <header className="top">
-        <h1>Explica este cargo</h1>
-        <nav>
-          <button className={view === 'customer' ? 'active' : ''} onClick={() => setView('customer')}>Cliente</button>
-          <button className={view === 'agent' ? 'active' : ''} onClick={() => setView('agent')}>Especialista</button>
-        </nav>
-        <span className="muted small">
-          {health.data ? <>datos al {health.data.as_of.slice(0, 10)} · {health.data.llm_enabled ? 'Claude activo' : 'modo reglas (sin LLM)'}</> : 'conectando…'}
-        </span>
+      <header className="app-header">
+        <div className="header-inner">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden="true"><Icon name="account_balance" size={22} /></span>
+            <span className="brand-text"><span className="brand-name">Explica este cargo</span><span className="brand-sub">LATAM Bank</span></span>
+          </div>
+          <nav className="views" aria-label="Vista">
+            <button type="button" aria-current={view === 'customer' ? 'page' : undefined} onClick={() => setView('customer')}>Cliente</button>
+            <button type="button" aria-current={view === 'agent' ? 'page' : undefined} onClick={() => setView('agent')}>Especialista</button>
+          </nav>
+          <span className="header-spacer" />
+          <span className={`health${health.data?.llm_enabled ? ' llm' : ''}`}>
+            {health.data
+              ? <><Icon name={health.data.llm_enabled ? 'check_circle' : 'rule'} size={16} />
+                  Datos al {health.data.as_of.slice(0, 10)} · {health.data.llm_enabled ? 'Claude activo' : 'Modo reglas (sin IA)'}</>
+              : 'Conectando…'}
+          </span>
+        </div>
+        {view === 'customer' && (
+          <div className="security-strip">
+            <p lang={lang}><Icon name="shield_lock" size={18} /><span>{TEXT[lang].security}</span></p>
+          </div>
+        )}
       </header>
-      <main>
-        {view === 'agent' ? <AgentQueue /> : session
-          ? <>
-              <div className="session-bar">
-                <span>{session.customer.first_name} · {session.customer.country}</span>
-                <button className="link" onClick={() => setSession(null)}>cambiar cliente</button>
-              </div>
-              <Chat key={session.id} sessionId={session.id} conversationRef={session.conversationRef} firstName={session.customer.first_name} suggestions={suggestionsFor(session.customer)} />
-            </>
-          : <DemoLogin onStart={setSession} />}
+      <main className="page">
+        {view === 'agent'
+          ? <AgentQueue onGoToCustomer={() => setView('customer')} />
+          : session
+            ? <Chat key={session.id} sessionId={session.id} conversationRef={session.conversationRef}
+                firstName={session.customer.first_name} country={session.customer.country}
+                suggestions={suggestionsFor(session.customer)} onChangeCustomer={leave} onLang={onLang} />
+            : <DemoLogin onStart={setSession} />}
       </main>
+      <footer className="page-footer">Demostración con datos sintéticos · Factored AI &amp; Data Hackathon 2026</footer>
     </div>
   )
 }
 
 /** Stand-in for a trusted identity service: identity comes from the session, never from chat text. */
-function DemoLogin({ onStart }: { onStart: (s: { id: string; conversationRef: string; customer: DemoCustomer }) => void }) {
-  const { data, isLoading, error } = useQuery({ queryKey: ['demo'], queryFn: api.demoCustomers })
-  const [busy, setBusy] = useState(false)
-  if (isLoading) return <p className="muted">Cargando clientes de demostración…</p>
-  if (error) return <p className="verdict bad">No se pudo contactar la API: ¿está corriendo en :8000? ({String(error)})</p>
+function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
+  const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ['demo'], queryFn: api.demoCustomers })
+  const [opening, setOpening] = useState<string | null>(null)
+  const start = async (c: DemoCustomer) => {
+    setOpening(c.customer_id)
+    try {
+      const s = await api.startSession(c.customer_id)
+      onStart({ id: s.session_id, conversationRef: s.conversation_ref, customer: c })
+    } finally { setOpening(null) }
+  }
   return (
     <div className="login">
-      <h2>Inicio de sesión de prueba</h2>
-      <p className="muted">Elija un cliente sintético. En producción la identidad vendría de un servicio de autenticación.</p>
-      <div className="demo-list">
-        {data!.map((c) => (
-          <button key={c.customer_id} disabled={busy} onClick={async () => {
-            setBusy(true)
-            try { const s = await api.startSession(c.customer_id); onStart({ id: s.session_id, conversationRef: s.conversation_ref, customer: c }) } finally { setBusy(false) }
-          }}>
-            <strong>{c.first_name}</strong> · {c.country}<br /><span className="muted small">{c.label}</span>
-          </button>
-        ))}
+      <div className="login-head">
+        <h1>Revisemos juntos su cargo</h1>
+        <p className="lead">Elija un cliente para empezar. Le explicaremos el cargo con los registros del banco.</p>
+        <p className="notice"><Icon name="science" size={18} /><span>Clientes sintéticos de prueba. En producción la identidad viene del inicio de sesión del banco.</span></p>
       </div>
+      {isLoading && <>
+        <p className="status-line" role="status">Cargando clientes de prueba…</p>
+        <ul className="customer-list" aria-hidden="true">
+          {[1, 2, 3, 4, 5, 6].map((k) => (
+            <li key={k} className="skeleton-card">
+              <span style={{ width: 40, height: 40 }} /><span style={{ height: 14, width: '60%' }} />
+              <span style={{ height: 12, width: '80%' }} /><span style={{ height: 10, width: '35%' }} />
+            </li>
+          ))}
+        </ul>
+      </>}
+      {error && (
+        <div className="alert-block" role="alert">
+          <Icon name="cloud_off" size={24} />
+          <span>No pudimos conectar. Sus datos están a salvo; intente de nuevo.</span>
+          <button type="button" className="btn" disabled={isFetching} onClick={() => void refetch()}><Icon name="refresh" />Reintentar</button>
+        </div>
+      )}
+      {data && (
+        <ul className="customer-list" aria-label="Clientes de prueba">
+          {data.map((c) => (
+            <li key={c.customer_id}>
+              <button type="button" className="customer-card" disabled={opening !== null} aria-busy={opening === c.customer_id}
+                onClick={() => void start(c)}>
+                <span className="cc-top">
+                  <span className="avatar soft" aria-hidden="true">{c.first_name.slice(0, 1).toUpperCase()}</span>
+                  <span className="cc-name"><strong>{c.first_name}</strong><span className="muted small">{c.country}</span></span>
+                </span>
+                <span className="cc-label">{c.label}</span>
+                <span className="cc-foot">{opening === c.customer_id ? 'Abriendo…' : <>Empezar<Icon name="arrow_forward" size={18} /></>}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
