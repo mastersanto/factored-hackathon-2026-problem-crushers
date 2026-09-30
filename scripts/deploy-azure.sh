@@ -22,6 +22,9 @@ echo "==> providers"
 for p in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry; do
   az provider register --namespace "$p" --wait >/dev/null
 done
+# An Azure CLI installed with `uv tool install azure-cli` has no pip, which extensions need.
+AZPY="$(dirname "$(readlink -f "$(command -v az)")")/python"
+[ -x "$AZPY" ] && ! "$AZPY" -m pip --version >/dev/null 2>&1 && "$AZPY" -m ensurepip --upgrade >/dev/null
 az extension add --name containerapp --upgrade --only-show-errors >/dev/null
 
 echo "==> resource group $RG ($LOCATION)"

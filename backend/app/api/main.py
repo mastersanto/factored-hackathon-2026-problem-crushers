@@ -72,6 +72,7 @@ def demo_customers():
             "SELECT c.customer_id, c.first_name, c.country, t.amount, t.currency, t.merchant_name, t.transaction_date "
             "FROM transactions t JOIN customers c USING (customer_id) JOIN products p USING (product_id) "
             f"WHERE t.transaction_date >= ? AND c.customer_status = 'Active' AND {cond} "
+            + ("" if "compliance_reviews" in cond else "AND t.transaction_id NOT IN (SELECT transaction_id FROM compliance_reviews) ") +
             "AND t.transaction_type IN ('Purchase', 'Payment', 'Withdrawal', 'Transfer', 'Adjustment') "
             "ORDER BY t.transaction_date DESC LIMIT 1", [since])
         if rows:
