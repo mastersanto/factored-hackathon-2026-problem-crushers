@@ -1,5 +1,6 @@
 # Organizer data and extracts: never commit (public repository)
-data/
+/data/
+/backend/data/
 *.csv
 *.parquet
 *.duckdb
@@ -29,3 +30,8 @@ artifacts/
 .vscode/
 .idea/
 .DS_Store
+
+# Build outputs
+*.egg-info/
+node_modules/
+frontend/dist/

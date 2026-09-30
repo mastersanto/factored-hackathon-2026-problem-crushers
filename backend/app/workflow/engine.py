@@ -1,0 +1,373 @@
+"""The dispute-intake workflow: understand -> decide -> act -> verify -> escalate.
+
+The flow is an explicit state machine in code. Models only interpret the customer (understand)
+and reword verified facts (phrase); every decision, lookup, rule, and permission is here.
+Each turn yields events that the API streams to the browser.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import secrets
+import threading
+import time
+import unicodedata
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Iterator, Literal
+
+from pydantic import BaseModel
+
+from app.config import BACKEND_DIR, settings
+from app.data.store import Store
+from app.policy import rules as policy
+from app.tools import banking
+from app.workflow import messages as M
+from app.workflow.understanding import Understanding, understand as understand_rules
+
+Basis = Literal["known", "guessed", "rule"]
+
+
+class Statement(BaseModel):
+    text: str
+    basis: Basis
+    source: str | None = None
+
+
+Stage = Literal["start", "choose", "confirm", "statement", "contact_shared", "closed"]
+
+
+@dataclass
+class Session:
+    id: str
+    customer: banking.Customer
+    created: float = field(default_factory=time.time)
+    last_seen: float = field(default_factory=time.time)
+    stage: Stage = "start"
+    lang: str = "es"
+    candidates: list[dict] = field(default_factory=list)
+    tx: dict | None = None
+    request_text: str = ""
+    pending_contact: dict | None = None
+    security_flags: list[str] = field(default_factory=list)
+    turns: int = 0
+
+
+class SessionStore:
+    def __init__(self):
+        self._sessions: dict[str, Session] = {}
+        self._lock = threading.Lock()
+
+    def create(self, customer: banking.Customer) -> Session:
+        s = Session(id=secrets.token_urlsafe(24), customer=customer)
+        with self._lock:
+            self._sessions[s.id] = s
+        return s
+
+    def get(self, sid: str) -> Session | None:
+        with self._lock:
+            return self._sessions.get(sid)
+
+
+class HandoffQueue:
+    """Structured handoffs for the human agent. Persisted as JSON lines in the git-ignored data folder."""
+
+    def __init__(self, path: Path | None = None):
+        self.path = path or Path(os.environ.get("HANDOFFS_PATH", BACKEND_DIR / "data" / "handoffs.jsonl"))
+        path = self.path
+        self._lock = threading.Lock()
+        self.items: list[dict] = []
+        if path.exists():
+            self.items = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+    def add(self, handoff: dict) -> dict:
+        with self._lock:
+            self.items.append(handoff)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a") as f:
+                f.write(json.dumps(handoff, default=str, ensure_ascii=False) + "\n")
+        return handoff
+
+
+def _case_id() -> str:
+    return "CASO-" + secrets.token_hex(3).upper()
+
+
+def _yes_no(text: str) -> bool | None:
+    t = "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn").strip()
+    if re.match(r"^(si|sim|yes|claro|lo di|le di|passei|compartilhei)\b", t):
+        return True
+    if re.match(r"^(no|nao|nunca|para nada)\b", t):
+        return False
+    return None
+
+
+class Engine:
+    def __init__(self, store: Store, handoffs: HandoffQueue, llm=None):
+        self.store = store
+        self.handoffs = handoffs
+        self.llm = llm  # app.llm.claude.Claude or None
+        self.merchants = [r["merchant_name"] for r in store.query(
+            "SELECT DISTINCT merchant_name FROM transactions WHERE merchant_name IS NOT NULL")]
+
+    # ---- helpers --------------------------------------------------------------------------
+    def _step(self, name: str, **detail) -> dict:
+        return {"type": "step", "step": name, **detail}
+
+    def _say(self, s: Session, statements: list[Statement], *, verify: bool = True) -> Iterator[dict]:
+        """Verify statements, optionally let the LLM reword them, verify again, and emit."""
+        problems = [st.text for st in statements if st.basis in ("known", "rule") and not st.source]
+        if problems:  # a claimed fact without a record never reaches the customer
+            statements = [st for st in statements if st.text not in problems]
+        text = " ".join(st.text for st in statements)
+        phrased_by = "template"
+        if self.llm and verify:
+            candidate = self.llm.phrase(s.lang, statements)
+            if candidate and self.llm.faithful(candidate, statements):
+                text, phrased_by = candidate, "llm"
+        yield self._step("verify", unsupported_removed=len(problems), phrased_by=phrased_by)
+        yield {"type": "message", "text": text, "statements": [st.model_dump() for st in statements]}
+
+    def _understand(self, s: Session, text: str) -> Understanding:
+        expecting = {"choose": "choose", "confirm": "confirm", "statement": "statement"}.get(s.stage)
+        rules_u = understand_rules(text, self.merchants, self.store.as_of, expecting, s.customer.customer_id)
+        if self.llm and s.stage not in ("statement", "contact_shared"):
+            llm_u = self.llm.understand(text, s.stage, self.merchants, self.store.as_of)
+            if llm_u:
+                # Security flags from the deterministic scan are never dropped by the model.
+                llm_u.other_customer_reference |= rules_u.other_customer_reference
+                llm_u.injection_suspected |= rules_u.injection_suspected
+                return llm_u
+        return rules_u
+
+    # ---- main entry -------------------------------------------------------------------------
+    def handle(self, s: Session, text: str) -> Iterator[dict]:
+        now = time.time()
+        if now - s.last_seen > settings.session_ttl_seconds:
+            yield {"type": "error", "code": "session_expired", "text": M.t("session_expired", s.lang)}
+            return
+        s.last_seen, s.turns = now, s.turns + 1
+        try:
+            yield from self._turn(s, text)
+        except banking.Unauthorized:
+            s.security_flags.append("unauthorized_tool_access")
+            yield self._step("decide", action="refuse_unauthorized")
+            yield from self._say(s, [Statement(text=M.t("unauthorized", s.lang), basis="rule", source="policy:own-data-only")], verify=False)
+        except Exception as exc:  # safe fallback: never guess, hand to a person
+            case = _case_id()
+            self.handoffs.add(self._handoff(s, case, "technical_fallback", open_questions=[f"System error: {type(exc).__name__}"]))
+            yield self._step("escalate", reason="technical_fallback", case_id=case)
+            yield from self._say(s, [Statement(text=M.t("fallback", s.lang, case=case), basis="rule", source="policy:safe-fallback")], verify=False)
+        yield {"type": "done", "stage": s.stage}
+
+    def _turn(self, s: Session, text: str) -> Iterator[dict]:
+        u = self._understand(s, text)
+        if s.stage in ("start", "closed") or u.intent in ("dispute_charge", "check_contact"):
+            s.lang = u.language
+        yield self._step("understand", intent=u.intent, source=u.source,
+                         slots={k: v for k, v in u.model_dump(exclude={"language", "intent", "source"}).items() if v not in (None, False)})
+
+        if u.other_customer_reference:
+            s.security_flags.append("other_customer_reference")
+            yield self._step("decide", action="refuse_unauthorized")
+            yield from self._say(s, [Statement(text=M.t("unauthorized", s.lang), basis="rule", source="policy:own-data-only")], verify=False)
+            return
+        if u.injection_suspected:
+            s.security_flags.append("prompt_injection_attempt")  # logged; the text never becomes an instruction
+
+        if s.stage == "contact_shared":
+            yield from self._contact_followup(s, text)
+            return
+        if s.stage == "statement":
+            yield from self._file_claim(s, text)
+            return
+        if u.intent == "check_contact":
+            yield from self._check_contact(s, u, text)
+        elif u.intent == "choose_option" and s.stage == "choose":
+            idx = (u.option or 0) - 1
+            if 0 <= idx < len(s.candidates):
+                yield self._step("decide", action="explain_candidate", option=u.option)
+                yield from self._explain(s, s.candidates[idx])
+            else:
+                yield from self._say(s, [Statement(text=M.t("choose", s.lang), basis="rule", source="flow")], verify=False)
+        elif u.intent == "confirm_mine" and s.stage == "confirm":
+            s.stage = "closed"
+            yield self._step("act", action="close_recognized", transaction_id=s.tx["transaction_id"])
+            yield from self._say(s, [Statement(text=M.t("closed_mine", s.lang), basis="rule", source="policy:recurring-cancel-via-bank")])
+        elif u.intent == "file_claim" and s.stage == "confirm":
+            s.stage = "statement"
+            yield self._step("decide", action="collect_statement")
+            yield from self._say(s, [Statement(text=M.t("ask_statement", s.lang), basis="rule", source="policy:handoff-checklist")], verify=False)
+        elif u.intent == "dispute_charge" or u.intent in ("confirm_mine", "file_claim", "choose_option"):
+            # Confirming, claiming, or choosing only make sense about a charge already on screen.
+            s.request_text = text
+            yield from self._find(s, u)
+        elif u.intent == "greeting":
+            yield from self._say(s, [Statement(text=M.t("greeting", s.lang, name=s.customer.first_name.split()[0]), basis="rule", source="flow")], verify=False)
+        else:
+            yield self._step("decide", action="abstain_out_of_scope")
+            yield from self._say(s, [Statement(text=M.t("out_of_scope", s.lang), basis="rule", source="policy:scope")], verify=False)
+
+    # ---- dispute path ---------------------------------------------------------------------
+    def _find(self, s: Session, u: Understanding) -> Iterator[dict]:
+        if not (u.amount or u.merchant or u.date):
+            yield self._step("decide", action="clarify_missing_details")
+            yield from self._say(s, [Statement(text=M.t("need_details", s.lang), basis="rule", source="flow")], verify=False)
+            return
+        date_from = u.date
+        date_to = u.date + timedelta(days=1) if u.date else None
+        found = banking.find_transactions(self.store, s.customer.customer_id, amount=u.amount, merchant=u.merchant,
+                                          date_from=date_from, date_to=date_to)
+        yield self._step("act", tool="find_transactions", results=min(len(found), 6))
+        if not found:
+            yield from self._say(s, [Statement(text=M.t("none_found", s.lang), basis="rule", source="tool:find_transactions")], verify=False)
+        elif len(found) == 1:
+            yield from self._explain(s, found[0])
+        elif len(found) <= 5:
+            s.stage, s.candidates = "choose", found
+            yield {"type": "candidates", "items": [self._card(tx, s.lang, i + 1) for i, tx in enumerate(found)]}
+            yield from self._say(s, [Statement(text=M.t("choose", s.lang), basis="rule", source="flow")], verify=False)
+        else:
+            yield from self._say(s, [Statement(text=M.t("too_many", s.lang), basis="rule", source="tool:find_transactions")], verify=False)
+
+    def _card(self, tx: dict, lang: str, n: int) -> dict:
+        return {"option": n, "transaction_id": tx["transaction_id"], "when": M.when(tx["transaction_date"], lang),
+                "amount": M.money(tx["amount"], tx["currency"]), "merchant": tx["merchant_name"] or M.TX_KINDS[lang].get(tx["transaction_type"], tx["transaction_type"]),
+                "status": tx["transaction_status"]}
+
+    def _explain(self, s: Session, tx: dict) -> Iterator[dict]:
+        s.tx, s.stage = tx, "confirm"
+        lang, src = s.lang, f"transaction:{tx['transaction_id']}"
+        product = M.PRODUCT_NAMES[lang].get(tx["product_type"], tx["product_type"])
+        channel = M.CHANNEL_NAMES[lang].get(tx["channel"], tx["channel"])
+        if tx["merchant_name"]:
+            core = M.t("tx_core", lang, amount=M.money(tx["amount"], tx["currency"]), merchant=tx["merchant_name"],
+                       when=M.when(tx["transaction_date"], lang), city=tx["transaction_city"] or "?",
+                       country=tx["transaction_country"], channel=channel, product=product, last4=tx["last4"])
+        else:
+            core = M.t("tx_core_nomerchant", lang, kind=M.TX_KINDS[lang].get(tx["transaction_type"], tx["transaction_type"]),
+                       amount=M.money(tx["amount"], tx["currency"]), when=M.when(tx["transaction_date"], lang),
+                       channel=channel, product=product, last4=tx["last4"])
+        statements = [Statement(text=core, basis="known", source=src)]
+        if tx["transaction_status"] == "Pending":
+            statements.append(Statement(text=M.t("pending", lang), basis="known", source=src))
+        if tx["merchant_name"]:
+            h = banking.merchant_history(self.store, s.customer.customer_id, tx["merchant_name"], tx["transaction_date"])
+            yield self._step("act", tool="merchant_history", previous=h["previous_count"])
+            key = "history_yes" if h["previous_count"] else "history_no"
+            statements.append(Statement(text=M.t(key, lang, merchant=tx["merchant_name"], n=h["previous_count"],
+                                                 last=M.day(h["last_date"], lang) if h["last_date"] else ""),
+                                        basis="known", source=f"history:{tx['merchant_name']}"))
+        # Risk signal: today the dataset's own score; the trained model replaces it (docs/build-plan.md).
+        if (tx.get("fraud_score") or 0) >= 50:
+            statements.append(Statement(text=M.t("risk", lang), basis="guessed", source="model:fraud_score>=50"))
+        statements.append(Statement(text=M.t("ask_confirm", lang), basis="rule", source="flow"))
+        yield self._step("decide", action="explain_transaction", transaction_id=tx["transaction_id"])
+        yield from self._say(s, statements)
+
+    def _file_claim(self, s: Session, statement_text: str) -> Iterator[dict]:
+        tx, lang = s.tx, s.lang
+        claim_time = self.store.as_of
+        shared = _yes_no_shared(statement_text)
+        card = banking.card_status(self.store, s.customer.customer_id, tx["product_id"])
+        yield self._step("act", tool="card_status", status=card["product_status"])
+        rights = policy.rights_for(s.customer.country, tx, claim_time)
+        case_type = "fraud_suspected" if (shared or (tx.get("fraud_score") or 0) >= 50) else "unrecognized_charge"
+        case = _case_id()
+        handoff = self._handoff(
+            s, case, case_type, customer_statement=statement_text, shared_secret=shared, card=card,
+            rights=[r.id for r in rights], answer_by=policy.answer_deadline(s.customer.country, claim_time),
+            open_questions=[q for q, missing in [
+                ("Did the customer share a code or click a link?", shared is None),
+                ("Authentication method of the transaction (not in the data)", True),
+                ("Police report number, if any", "denuncia" not in statement_text.lower() and "boletim" not in statement_text.lower()),
+            ] if missing])
+        self.handoffs.add(handoff)
+        s.stage = "closed"
+        yield self._step("escalate", case_id=case, case_type=case_type, priority=handoff["priority"])
+        yield {"type": "handoff", "handoff": handoff}
+        statements = [Statement(text=M.t("handoff_done", lang, case=case), basis="rule", source=f"handoff:{case}")]
+        statements += [Statement(text=r.text[lang], basis="rule", source=f"rule:{r.id}") for r in rights]
+        if case_type == "fraud_suspected":
+            statements.append(Statement(text=M.t("freeze_hint", lang), basis="rule", source="policy:never-ask-secrets"))
+        yield from self._say(s, statements, verify=False)
+
+    # ---- "is this really my bank?" ----------------------------------------------------------
+    def _check_contact(self, s: Session, u: Understanding, text: str) -> Iterator[dict]:
+        channel = u.channel or "any"
+        res = banking.outbound_check(self.store, s.customer.customer_id, channel, u.date, u.asked_for_secret)
+        yield self._step("act", tool="outbound_check", verdict=res["verdict"], matches=len(res["matches"]))
+        yield {"type": "verdict", "verdict": res["verdict"], "channel": channel}
+        lang = s.lang
+        if res["verdict"] == "scam_asks_secret":
+            st = [Statement(text=M.t("verdict_scam_asks_secret", lang), basis="rule", source="policy:never-ask-secrets")]
+            if u.shared_secret:
+                yield from self._escalate_contact(s, text, channel, st)
+                return
+            if u.shared_secret is None:
+                s.stage, s.pending_contact = "contact_shared", {"channel": channel, "text": text}
+                st.append(Statement(text=M.t("ask_shared", lang), basis="rule", source="policy:handoff-checklist"))
+            yield from self._say(s, st, verify=False)
+        elif res["verdict"] == "bank_contact":
+            m = res["matches"][0]
+            yield from self._say(s, [Statement(text=M.t("verdict_bank_contact", lang, channel=M.CHANNEL_NAMES[lang][m["channel"]],
+                                                         day=M.day(m["contact_ts"], lang)), basis="known", source=f"outbound:{m['contact_id']}")])
+        else:
+            yield from self._say(s, [Statement(text=M.t("verdict_no_record", lang, channel=M.CHANNEL_NAMES[lang][channel]),
+                                               basis="known", source="outbound:none-in-window")])
+
+    def _contact_followup(self, s: Session, text: str) -> Iterator[dict]:
+        shared = _yes_no(text)
+        pc = s.pending_contact or {"channel": "any", "text": ""}
+        if shared:
+            yield from self._escalate_contact(s, pc["text"] + " / " + text, pc["channel"], [])
+        else:
+            s.stage = "start"
+            yield from self._say(s, [Statement(text=M.t("freeze_hint", s.lang), basis="rule", source="policy:never-ask-secrets")], verify=False)
+
+    def _escalate_contact(self, s: Session, text: str, channel: str, st: list[Statement]) -> Iterator[dict]:
+        case = _case_id()
+        handoff = self._handoff(s, case, "fake_contact_secret_shared", customer_statement=text, shared_secret=True,
+                                contact_channel=channel, open_questions=["Which data or code was shared, and when",
+                                                                        "Transactions after the contact to review"])
+        handoff["priority"] = "urgent"
+        self.handoffs.add(handoff)
+        s.stage = "closed"
+        yield self._step("escalate", case_id=case, case_type="fake_contact_secret_shared", priority="urgent")
+        yield {"type": "handoff", "handoff": handoff}
+        st = st + [Statement(text=M.t("verdict_escalated", s.lang, case=case), basis="rule", source=f"handoff:{case}")]
+        yield from self._say(s, st, verify=False)
+
+    # ---- handoff ----------------------------------------------------------------------------
+    def _handoff(self, s: Session, case: str, case_type: str, **extra) -> dict:
+        tx = s.tx
+        priority = "high" if extra.get("shared_secret") or (tx and (tx.get("fraud_score") or 0) >= 50) else "normal"
+        return {
+            "case_id": case, "created_at": datetime.now().isoformat(timespec="seconds"), "case_type": case_type,
+            "priority": priority, "language": s.lang,
+            "customer": {"customer_id": s.customer.customer_id, "first_name": s.customer.first_name,
+                         "country": s.customer.country, "segment": s.customer.segment},
+            "request": s.request_text,
+            "verified_facts": ({"transaction_id": tx["transaction_id"], "date": tx["transaction_date"], "amount": tx["amount"],
+                                "currency": tx["currency"], "merchant": tx["merchant_name"], "city": tx["transaction_city"],
+                                "country": tx["transaction_country"], "channel": tx["channel"], "status": tx["transaction_status"],
+                                "product": tx["product_type"], "last4": tx["last4"]} if tx else None),
+            "actions_taken": ["transaction located and explained" if tx else "no transaction involved",
+                              "customer did not recognize it" if case_type in ("unrecognized_charge", "fraud_suspected") else case_type],
+            "security_flags": s.security_flags,
+            **{k: v for k, v in extra.items()},
+        }
+
+
+def _yes_no_shared(text: str) -> bool | None:
+    t = text.lower()
+    # Negatives first: "no compartí" contains "compartí".
+    if any(k in t for k in ["no compartí", "no comparti", "no di ", "no le di", "nunca di", "não passei", "nao passei",
+                            "não compartilhei", "nao compartilhei", "no hice clic", "não cliquei"]):
+        return False
+    if any(k in t for k in ["compartí", "comparti", "le di", "di el código", "di el codigo", "passei", "compartilhei",
+                            "hice clic", "cliqué", "cliquei"]):
+        return True
+    return None

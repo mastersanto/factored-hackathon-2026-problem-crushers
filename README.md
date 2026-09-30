@@ -6,6 +6,28 @@ An AI customer-service system for one banking workflow: **transaction-dispute in
 
 > Status: build starting (2026-09-30). Submissions close 2026-10-05, midnight Colombia time.
 
+## Run it locally
+
+Needs Python 3.10+, Node 20+, and the organizers' dataset mirror at `~/factored-hackathon-2026-scratch/data` (or set `DATA_MIRROR`).
+
+```bash
+make setup   # Python venv + frontend packages
+make data    # build the Parquet warehouse and data-quality report (about 20 s)
+make test    # workflow tests, one per required case (rules only, no LLM calls)
+make dev     # API on :8000 and web app on http://localhost:5173
+```
+
+Without `ANTHROPIC_API_KEY` the assistant runs in rules mode, understanding with rules and answering from templates. With the key set, Claude Haiku 4.5 understands requests and Claude Sonnet 5.5 phrases answers, and every rewording is checked against the verified facts before it is shown.
+
+## How it works
+
+The workflow runs `understand -> decide -> act -> verify -> escalate` as an explicit state machine (`backend/app/workflow/engine.py`).
+
+- **Understand.** Models are used here and when rewording, and nowhere else.
+- **Decide and act.** Transaction lookups, the outbound-record check, card status, and country rules are deterministic, read-only tools (`backend/app/tools/banking.py`, `backend/app/policy/rules.py`). They take the session's customer, never an ID typed in the chat.
+- **Verify.** Every statement to the customer is tagged *known* (with its source record), *guessed*, or *rule*.
+- **Escalate.** Cases that need a person become structured handoffs in the specialist view.
+
 ## Documents
 
 - [`docs/idea-brief.md`](docs/idea-brief.md): the problem, the workflow, the required cases, the metrics, and the data limits.
