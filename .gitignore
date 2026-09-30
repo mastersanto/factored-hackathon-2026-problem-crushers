@@ -38,3 +38,12 @@ artifacts/
 *.egg-info/
 node_modules/
 frontend/dist/
+
+# Design export (specs/003): keep the extracted prototype, not the archive or earlier explorations
+specs/003-ui-improvements/design/*.zip
+specs/003-ui-improvements/design/.thumbnail
+specs/003-ui-improvements/design/uploads/
+# UI check output: screenshots show synthetic customer rows
+frontend/e2e/screenshots/
+frontend/test-results/
+frontend/playwright-report/

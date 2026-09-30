@@ -20,3 +20,6 @@ specs
 docs
 *.md
 !frontend/**/*.md
+frontend/e2e/screenshots
+frontend/test-results
+frontend/playwright-report

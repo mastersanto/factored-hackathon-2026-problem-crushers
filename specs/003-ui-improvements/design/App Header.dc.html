@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+</helmet>
+<header style="background:var(--brand-navy); color:var(--on-brand); font-family:var(--font-sans)">
+  <div style="display:flex; align-items:center; gap:12px 24px; flex-wrap:wrap; padding:10px clamp(16px,3.3cqw,40px); min-height:64px; max-width:1200px; margin:0 auto; box-sizing:border-box">
+    <div style="display:flex; align-items:center; gap:12px">
+      <span class="material-symbols-outlined" aria-hidden="true" style="font-size:22px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,.24); border-radius:8px">account_balance</span>
+      <div style="display:flex; flex-direction:column; line-height:1.2">
+        <span style="font-weight:600; font-size:16px">Explica este cargo</span>
+        <span style="font-size:12px; color:var(--on-brand-muted)">LATAM Bank</span>
+      </div>
+    </div>
+    <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+      <nav aria-label="Vista" style="display:flex; gap:4px; align-self:stretch">
+        <sc-if value="{{ isCliente }}" hint-placeholder-val="{{ true }}">
+          <button type="button" aria-current="page" style="font:inherit; font-size:14px; font-weight:600; color:var(--on-brand); background:rgba(255,255,255,.08); border:0; border-bottom:3px solid #4FB3BD; border-radius:8px 8px 0 0; padding:0 16px; min-height:44px; cursor:pointer" style-focus="outline:2px solid #4FB3BD; outline-offset:-2px">Cliente</button>
+          <button type="button" style="font:inherit; font-size:14px; font-weight:500; color:var(--on-brand-muted); background:transparent; border:0; border-bottom:3px solid transparent; border-radius:8px 8px 0 0; padding:0 16px; min-height:44px; cursor:pointer" style-hover="color:#FFFFFF; background:rgba(255,255,255,.06)" style-focus="outline:2px solid #4FB3BD; outline-offset:-2px">Especialista</button>
+        </sc-if>
+        <sc-if value="{{ isEspecialista }}" hint-placeholder-val="{{ false }}">
+          <button type="button" style="font:inherit; font-size:14px; font-weight:500; color:var(--on-brand-muted); background:transparent; border:0; border-bottom:3px solid transparent; border-radius:8px 8px 0 0; padding:0 16px; min-height:44px; cursor:pointer" style-hover="color:#FFFFFF; background:rgba(255,255,255,.06)">Cliente</button>
+          <button type="button" aria-current="page" style="font:inherit; font-size:14px; font-weight:600; color:var(--on-brand); background:rgba(255,255,255,.08); border:0; border-bottom:3px solid #4FB3BD; border-radius:8px 8px 0 0; padding:0 16px; min-height:44px; cursor:pointer">Especialista</button>
+        </sc-if>
+      </nav>
+    </sc-if>
+    <span style="flex:1"></span>
+    <sc-if value="{{ llm }}" hint-placeholder-val="{{ true }}">
+      <span style="display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(255,255,255,.24); border-radius:8px; padding:6px 10px; font-family:var(--font-mono); font-size:12px; color:var(--on-brand)"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px; color:#5CC98F">check_circle</span>Datos al 2026-06-30 · Claude activo</span>
+    </sc-if>
+    <sc-if value="{{ rules }}" hint-placeholder-val="{{ false }}">
+      <span style="display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(255,255,255,.24); border-radius:8px; padding:6px 10px; font-family:var(--font-mono); font-size:12px; color:var(--on-brand)"><span class="material-symbols-outlined" aria-hidden="true" style="font-size:16px; color:var(--on-brand-muted)">rule</span>Datos al 2026-06-30 · Modo reglas (sin IA)</span>
+    </sc-if>
+  </div>
+  <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}">
+    <nav aria-label="Vista" style="display:grid; grid-template-columns:1fr 1fr; padding:0 16px">
+      <sc-if value="{{ isCliente }}" hint-placeholder-val="{{ true }}">
+        <button type="button" aria-current="page" style="font:inherit; font-size:14px; font-weight:600; color:var(--on-brand); background:rgba(255,255,255,.08); border:0; border-bottom:3px solid #4FB3BD; border-radius:8px 8px 0 0; min-height:44px">Cliente</button>
+        <button type="button" style="font:inherit; font-size:14px; font-weight:500; color:var(--on-brand-muted); background:transparent; border:0; border-bottom:3px solid transparent; min-height:44px">Especialista</button>
+      </sc-if>
+      <sc-if value="{{ isEspecialista }}" hint-placeholder-val="{{ false }}">
+        <button type="button" style="font:inherit; font-size:14px; font-weight:500; color:var(--on-brand-muted); background:transparent; border:0; border-bottom:3px solid transparent; min-height:44px">Cliente</button>
+        <button type="button" aria-current="page" style="font:inherit; font-size:14px; font-weight:600; color:var(--on-brand); background:rgba(255,255,255,.08); border:0; border-bottom:3px solid #4FB3BD; border-radius:8px 8px 0 0; min-height:44px">Especialista</button>
+      </sc-if>
+    </nav>
+  </sc-if>
+  <sc-if value="{{ strip }}" hint-placeholder-val="{{ true }}">
+    <div style="background:var(--brand-navy-deep); border-top:1px solid rgba(255,255,255,.12)">
+      <p style="margin:0 auto; max-width:1200px; box-sizing:border-box; padding:10px clamp(16px,3.3cqw,40px); display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:18px; font-weight:500; color:#E6ECF5">
+        <span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px; color:var(--trust-gold)">shield_lock</span>
+        <span>Conversación segura · Nunca le pediremos contraseñas, PIN ni códigos SMS</span>
+      </p>
+    </div>
+  </sc-if>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;cliente&quot;,&quot;especialista&quot;],&quot;default&quot;:&quot;cliente&quot;,&quot;tsType&quot;:&quot;'cliente'|'especialista'&quot;},&quot;mobile&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;rules&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const mobile = !!p.mobile;
+    const esp = p.tab === 'especialista';
+    return { mobile, desktop: !mobile, isCliente: !esp, isEspecialista: esp, rules: !!p.rules, llm: !p.rules, strip: p.strip !== false && !esp };
+  }
+}
+</script>
+</body>
+</html>

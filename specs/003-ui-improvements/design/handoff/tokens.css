@@ -1,0 +1,36 @@
+/* Explica este cargo · Bóveda tokens. Drop-in for frontend/src/index.css (:root + dark). */
+:root {
+  --bg: #F8F9FA; --surface: #FFFFFF; --surface-2: #F1F4F7;
+  --text: #0D1B2A; --muted: #4A5568; --border: #DCE2E6; --border-strong: #0F2A4A;
+  --accent: #0B6E79; --accent-hover: #08545D; --on-accent: #FFFFFF; --accent-soft: #E0F2F1;
+  --good: #1B5E20; --good-soft: #E8F5E9;
+  --warn: #8A5A00; --warn-soft: #FFF8E1;
+  --bad: #B42318; --bad-soft: #FDECEA;
+  --bubble-customer: #0F2A4A; --bubble-customer-text: #FFFFFF;
+  --brand-navy: #0F2A4A; --brand-navy-deep: #0A1F38; --on-brand: #FFFFFF; --on-brand-muted: #B0C8F0;
+  --trust-gold: #C9A227;
+  --focus-ring: #0B6E79;
+  --skeleton: #E6EAEE;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --radius: 8px; --radius-sm: 4px;
+  --tap: 44px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0F1216; --surface: #171B21; --surface-2: #1E232B;
+    --text: #E6E8EB; --muted: #98A2B3; --border: #2A3039; --border-strong: #8B95A5;
+    --accent: #4FB3BD; --accent-hover: #6CC4CD; --on-accent: #0F1216; --accent-soft: #15343A;
+    --good: #5CC98F; --good-soft: #143322;
+    --warn: #E8B64C; --warn-soft: #3A2E10;
+    --bad: #F47067; --bad-soft: #3D1A17;
+    --bubble-customer: #1F3A5C; --bubble-customer-text: #E6E8EB;
+    --trust-gold: #D4B04A;
+    --focus-ring: #4FB3BD;
+    --skeleton: #242A33;
+    color-scheme: dark;
+  }
+}
+/* Focus: every focusable element */
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
