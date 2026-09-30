@@ -1,0 +1,21 @@
+# Build context: only what the image needs. Never secrets, never the full data.
+.git
+.env
+.env.*
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.egg-info
+frontend/dist
+backend/data/warehouse
+backend/data/eval
+backend/data/mlartifacts
+backend/data/mlflow.db
+backend/data/handoffs.jsonl
+backend/data/models/fraud_report.json
+.specify
+.claude
+specs
+docs
+*.md
+!frontend/**/*.md

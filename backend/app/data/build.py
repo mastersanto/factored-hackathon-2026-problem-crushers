@@ -6,7 +6,9 @@ the application or any model. Card and account numbers keep only their last four
 
 Usage:
     python -m app.data.build              # full warehouse from the mirror
-    python -m app.data.build --customers 500   # demo subset: a sample of customers and their rows
+    python -m app.data.build --customers 500   # sample of customers and their rows, from the mirror
+    python -m app.data.build --from-warehouse data/warehouse --customers 500 --out data/demo-warehouse
+                                               # deployment subset: covers every workflow path
 """
 from __future__ import annotations
 
@@ -86,11 +88,70 @@ def build(mirror: Path, out: Path, sample_customers: int | None = None, seed: fl
     return report
 
 
+# Workflow paths the demo must be able to show, as conditions on the recent data (last 30 days).
+DEMO_PATHS = {
+    "pending_charge": "t.transaction_status = 'Pending' AND t.merchant_name IS NOT NULL",
+    "flagged_fraud_score": "t.fraud_score > 30 AND t.merchant_name IS NOT NULL",
+    "mexico_debit_48h": "c.country = 'México' AND p.product_type = 'Tarjeta Débito' AND t.transaction_date >= (SELECT max(transaction_date) FROM tx_all) - INTERVAL 48 HOUR",
+    "colombia_purchase": "c.country = 'Colombia' AND t.transaction_type = 'Purchase' AND t.merchant_name IS NOT NULL",
+    "argentina_purchase": "c.country = 'Argentina' AND t.transaction_type = 'Purchase' AND t.merchant_name IS NOT NULL",
+}
+DISPUTABLE = "('Purchase', 'Payment', 'Withdrawal', 'Transfer', 'Adjustment')"
+
+
+def build_demo(src: Path, out: Path, n: int = 500, per_path: int = 5, seed: float = 0.42) -> dict:
+    """Demo subset for deployment, from the already-minimized warehouse: a few customers per workflow
+    path, then random customers up to n. Only these customers' rows are kept."""
+    out.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect()
+    for t in ["customers", "products", "transactions", "outbound_contacts", "complaints"]:
+        con.sql(f"CREATE VIEW {t}_all AS SELECT * FROM read_parquet('{src / t}.parquet')")
+    con.sql("CREATE VIEW tx_all AS SELECT * FROM transactions_all")
+    con.sql(f"SELECT setseed({seed})")
+    recent = "t.transaction_date >= (SELECT max(transaction_date) FROM tx_all) - INTERVAL 30 DAY"
+    picks = []
+    for name, cond in DEMO_PATHS.items():
+        picks.append(f"""(SELECT DISTINCT t.customer_id FROM transactions_all t JOIN customers_all c USING (customer_id)
+            JOIN products_all p USING (product_id) WHERE {recent} AND c.customer_status = 'Active'
+            AND t.transaction_type IN {DISPUTABLE} AND {cond} ORDER BY t.customer_id LIMIT {per_path})""")
+    picks.append(f"""(SELECT DISTINCT o.customer_id FROM outbound_contacts_all o JOIN customers_all c USING (customer_id)
+        WHERE o.contact_ts >= (SELECT max(transaction_date) FROM tx_all) - INTERVAL 30 DAY AND o.channel IN ('SMS', 'WhatsApp')
+        AND c.customer_status = 'Active' ORDER BY o.customer_id LIMIT {per_path})""")
+    con.sql(f"CREATE TEMP TABLE keep AS SELECT DISTINCT customer_id FROM ({' UNION '.join(picks)})")
+    have = con.sql("SELECT count(*) FROM keep").fetchone()[0]
+    con.sql(f"INSERT INTO keep SELECT customer_id FROM customers_all WHERE customer_id NOT IN (SELECT customer_id FROM keep) "
+            f"ORDER BY random() LIMIT {max(0, n - have)}")
+    keep = "WHERE customer_id IN (SELECT customer_id FROM keep)"
+    counts = {}
+    for t in ["customers", "products", "transactions", "outbound_contacts", "complaints"]:
+        con.sql(f"CREATE TEMP TABLE {t} AS SELECT * FROM {t}_all {keep}")
+        con.sql(f"COPY {t} TO '{out / t}.parquet' (FORMAT parquet)")
+        counts[t] = con.sql(f"SELECT count(*) FROM {t}").fetchone()[0]
+    report = run_checks(con)
+    # Coverage: every path still has a customer in the subset (the subset's "today" is the full data's).
+    coverage = {}
+    for name, cond in DEMO_PATHS.items():
+        coverage[name] = con.sql(f"""SELECT count(DISTINCT t.customer_id) FROM transactions t JOIN customers c USING (customer_id)
+            JOIN products p USING (product_id) WHERE {recent} AND t.transaction_type IN {DISPUTABLE} AND {cond}""").fetchone()[0]
+    coverage["recent_bank_sms_or_whatsapp"] = con.sql("""SELECT count(DISTINCT customer_id) FROM outbound_contacts
+        WHERE contact_ts >= (SELECT max(transaction_date) FROM tx_all) - INTERVAL 30 DAY AND channel IN ('SMS', 'WhatsApp')""").fetchone()[0]
+    report.update({"row_counts": counts, "demo_path_coverage": coverage,
+                   "demo_paths_missing": [k for k, v in coverage.items() if v == 0], "source": str(src), "customers": n})
+    (out / "quality_report.json").write_text(json.dumps(report, indent=2, default=str))
+    return report
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--customers", type=int, default=None, help="build a demo subset of N random customers")
     ap.add_argument("--out", type=Path, default=settings.warehouse_dir)
+    ap.add_argument("--from-warehouse", type=Path, default=None,
+                    help="build the demo subset from an existing (minimized) warehouse instead of the mirror")
     args = ap.parse_args()
+    if args.from_warehouse:
+        report = build_demo(args.from_warehouse, args.out, args.customers or 500)
+        print(json.dumps({k: report[k] for k in ("row_counts", "checks_failed", "demo_path_coverage", "demo_paths_missing")}, indent=2))
+        return
     report = build(settings.mirror_dir, args.out, args.customers)
     print(json.dumps({"row_counts": report["row_counts"], "checks_failed": report["checks_failed"],
                       "build_seconds": report["build_seconds"]}, indent=2))

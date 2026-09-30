@@ -28,6 +28,18 @@ def load_env_files(*paths: Path) -> None:
 load_env_files(REPO_DIR / ".env.local", REPO_DIR / ".env")
 
 
+def normalize_credentials(names=("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")) -> None:
+    """Strip whitespace and surrounding quotes from credentials. `docker --env-file` and some hosts pass
+    KEY="value" through literally, which the API then rejects as an invalid key."""
+    for name in names:
+        value = os.environ.get(name)
+        if value is not None:
+            os.environ[name] = value.strip().strip('"').strip("'").strip()
+
+
+normalize_credentials()
+
+
 @dataclass(frozen=True)
 class Settings:
     # Local read-only mirror of the organizers' dataset (never inside this repository).

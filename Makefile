@@ -1,7 +1,7 @@
 # Local development. Requires the organizers' dataset mirror (see CLAUDE.md) for `make data`.
 PY := backend/.venv/bin/python
 
-.PHONY: setup data model eval eval-llm test api web dev
+.PHONY: setup data model eval eval-llm test api web dev demo-data docker docker-run
 
 setup:            ## create the Python venv and install both apps
 	python3 -m venv backend/.venv
@@ -35,3 +35,13 @@ web:              ## React dev server on http://localhost:5173 (proxies /api to 
 
 dev:              ## API and web together
 	$(MAKE) -j2 api web
+
+demo-data:        ## deployment subset: 500 customers covering every workflow path (needs `make data` first)
+	cd backend && .venv/bin/python -m app.data.build --from-warehouse data/warehouse --customers 500 --out data/demo-warehouse
+
+docker: demo-data ## build the single container (API + built frontend + demo subset + fraud model)
+	docker build -t explain-this-charge .
+
+docker-run:       ## run the container on http://localhost:8080; the key comes from .env.local at runtime, not the image
+	docker run --rm -p 8080:8080 --env-file .env.local --name explain-this-charge explain-this-charge
+

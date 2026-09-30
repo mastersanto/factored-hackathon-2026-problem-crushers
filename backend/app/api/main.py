@@ -6,11 +6,14 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+from pathlib import Path
 from datetime import timedelta
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -53,7 +56,7 @@ def demo_customers():
     data exercises each path of the workflow, with a hint of a charge to ask about."""
     since = store.as_of - timedelta(days=30)
     picks = {
-        "suspicious charge (fraud score >= 50)": "t.fraud_score >= 50",
+        "charge flagged by the fraud-risk estimate": "t.fraud_score > 30",
         "pending charge": "t.transaction_status = 'Pending' AND t.merchant_name IS NOT NULL",
         "México, debit card, last 48 hours": f"c.country = 'México' AND p.product_type = 'Tarjeta Débito' AND t.transaction_date >= TIMESTAMP '{store.as_of - timedelta(hours=48)}'",
         "Colombia, card purchase": "c.country = 'Colombia' AND t.transaction_type = 'Purchase' AND t.merchant_name IS NOT NULL",
@@ -117,3 +120,11 @@ def metrics():
     usage = llm.usage_log if llm else []
     return {"llm_calls": len(usage), "usd": round(sum(u["usd"] for u in usage), 6),
             "by_model": {m: sum(1 for u in usage if u["model"] == m) for m in {u["model"] for u in usage}}}
+
+
+# In the container the API also serves the built frontend (one process, one port). Mounted last so
+# every /api route above takes precedence. In development the folder is absent and Vite serves the app.
+FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", Path(__file__).resolve().parents[3] / "frontend" / "dist"))
+if FRONTEND_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+

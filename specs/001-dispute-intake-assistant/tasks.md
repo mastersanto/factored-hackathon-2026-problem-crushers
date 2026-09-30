@@ -49,13 +49,13 @@ These are done as of 2026-09-30 and verified by `make test` and `make eval` (see
 
 **Purpose**: package the system as a single container that serves the API and the built frontend.
 
-- [ ] T020 Serve the built frontend from the API: mount `frontend/dist` as static files at `/`, keeping `/api/*` routes first, in `backend/app/api/main.py`. Skip the mount when the folder is missing (development).
-- [ ] T021 [P] Make the demo-subset build write to its own folder: `python -m app.data.build --customers 500 --out backend/data/demo-warehouse`. Check that `quality_report.json` has `checks_failed: 0`, and that the demo customers still cover every path (at least one each for pending, flagged fraud score, México debit within 48 hours, and a recent SMS or WhatsApp contact). Record the check in `backend/app/data/build.py`, and adjust the selection if a path is missing.
-- [ ] T022 [P] Write a multi-stage `Dockerfile`:
+- [X] T020 Serve the built frontend from the API: mount `frontend/dist` as static files at `/`, keeping `/api/*` routes first, in `backend/app/api/main.py`. Skip the mount when the folder is missing (development).
+- [X] T021 [P] Make the demo-subset build write to its own folder: `python -m app.data.build --customers 500 --out backend/data/demo-warehouse`. Check that `quality_report.json` has `checks_failed: 0`, and that the demo customers still cover every path (at least one each for pending, flagged fraud score, México debit within 48 hours, and a recent SMS or WhatsApp contact). Record the check in `backend/app/data/build.py`, and adjust the selection if a path is missing.
+- [X] T022 [P] Write a multi-stage `Dockerfile`:
   - a Node stage builds `frontend/`;
   - a Python 3.10 slim stage installs `backend` (runtime dependencies only, no MLflow), copies `backend/data/demo-warehouse` to `/app/data/warehouse` and `backend/data/models/fraud.joblib`, and runs uvicorn on port 8080 with `WAREHOUSE_DIR=/app/data/warehouse`.
-- [ ] T023 [P] Write `.dockerignore` excluding `backend/.venv`, `frontend/node_modules`, `backend/data/warehouse` (the full warehouse), `backend/data/eval`, `backend/data/mlartifacts`, `backend/data/mlflow.db`, and `.env*`. Keep only the demo warehouse and the model.
-- [ ] T024 Add `make demo-data` and `make docker` targets, and a local run command (`docker run -p 8080:8080 --env-file .env.local …`), to `Makefile`. Verify the container on http://localhost:8080 with the quickstart's demo script.
+- [X] T023 [P] Write `.dockerignore` excluding `backend/.venv`, `frontend/node_modules`, `backend/data/warehouse` (the full warehouse), `backend/data/eval`, `backend/data/mlartifacts`, `backend/data/mlflow.db`, and `.env*`. Keep only the demo warehouse and the model.
+- [X] T024 Add `make demo-data` and `make docker` targets, and a local run command (`docker run -p 8080:8080 --env-file .env.local …`), to `Makefile`. Verify the container on http://localhost:8080 with the quickstart's demo script.
 
 ---
 
