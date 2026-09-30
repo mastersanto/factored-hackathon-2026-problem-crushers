@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from app.config import BACKEND_DIR, settings
 from app.data.store import Store
+from app.ml.fraud import load_fraud_risk
 from app.policy import rules as policy
 from app.tools import banking
 from app.workflow import messages as M
@@ -109,6 +110,7 @@ class Engine:
         self.store = store
         self.handoffs = handoffs
         self.llm = llm  # app.llm.claude.Claude or None
+        self.fraud = load_fraud_risk()  # calibrated risk estimate; falls back to the score >= 50 rule
         self.merchants = [r["merchant_name"] for r in store.query(
             "SELECT DISTINCT merchant_name FROM transactions WHERE merchant_name IS NOT NULL")]
 
@@ -260,12 +262,21 @@ class Engine:
             statements.append(Statement(text=M.t(key, lang, merchant=tx["merchant_name"], n=h["previous_count"],
                                                  last=M.day(h["last_date"], lang) if h["last_date"] else ""),
                                         basis="known", source=f"history:{tx['merchant_name']}"))
-        # Risk signal: today the dataset's own score; the trained model replaces it (docs/build-plan.md).
-        if (tx.get("fraud_score") or 0) >= 50:
-            statements.append(Statement(text=M.t("risk", lang), basis="guessed", source="model:fraud_score>=50"))
+        # Risk signal from the learned component (docs/model-card.md); an estimate, never a decision.
+        p, flagged = self._risk(tx)
+        tx["risk"] = {"probability": round(p, 4), "flagged": flagged, "model": self.fraud.name if self.fraud else "rule:fraud_score>=50"}
+        yield self._step("act", tool="fraud_risk", **tx["risk"])
+        if flagged:
+            statements.append(Statement(text=M.t("risk", lang), basis="guessed", source=f"model:{tx['risk']['model']}"))
         statements.append(Statement(text=M.t("ask_confirm", lang), basis="rule", source="flow"))
         yield self._step("decide", action="explain_transaction", transaction_id=tx["transaction_id"])
         yield from self._say(s, statements)
+
+    def _risk(self, tx: dict) -> tuple[float, bool]:
+        if self.fraud:
+            return self.fraud.estimate(tx.get("fraud_score"))
+        flagged = (tx.get("fraud_score") or 0) >= 50
+        return (1.0 if flagged else 0.0), flagged
 
     def _file_claim(self, s: Session, statement_text: str) -> Iterator[dict]:
         tx, lang = s.tx, s.lang
@@ -274,7 +285,7 @@ class Engine:
         card = banking.card_status(self.store, s.customer.customer_id, tx["product_id"])
         yield self._step("act", tool="card_status", status=card["product_status"])
         rights = policy.rights_for(s.customer.country, tx, claim_time)
-        case_type = "fraud_suspected" if (shared or (tx.get("fraud_score") or 0) >= 50) else "unrecognized_charge"
+        case_type = "fraud_suspected" if (shared or tx.get("risk", {}).get("flagged")) else "unrecognized_charge"
         case = _case_id()
         handoff = self._handoff(
             s, case, case_type, customer_statement=statement_text, shared_secret=shared, card=card,
@@ -343,7 +354,7 @@ class Engine:
     # ---- handoff ----------------------------------------------------------------------------
     def _handoff(self, s: Session, case: str, case_type: str, **extra) -> dict:
         tx = s.tx
-        priority = "high" if extra.get("shared_secret") or (tx and (tx.get("fraud_score") or 0) >= 50) else "normal"
+        priority = "high" if extra.get("shared_secret") or (tx and tx.get("risk", {}).get("flagged")) else "normal"
         return {
             "case_id": case, "created_at": datetime.now().isoformat(timespec="seconds"), "case_type": case_type,
             "priority": priority, "language": s.lang,
@@ -354,6 +365,7 @@ class Engine:
                                 "currency": tx["currency"], "merchant": tx["merchant_name"], "city": tx["transaction_city"],
                                 "country": tx["transaction_country"], "channel": tx["channel"], "status": tx["transaction_status"],
                                 "product": tx["product_type"], "last4": tx["last4"]} if tx else None),
+            "risk_estimate": (tx or {}).get("risk"),
             "actions_taken": ["transaction located and explained" if tx else "no transaction involved",
                               "customer did not recognize it" if case_type in ("unrecognized_charge", "fraud_suspected") else case_type],
             "security_flags": s.security_flags,

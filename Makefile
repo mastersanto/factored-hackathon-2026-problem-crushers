@@ -1,7 +1,7 @@
 # Local development. Requires the organizers' dataset mirror (see CLAUDE.md) for `make data`.
 PY := backend/.venv/bin/python
 
-.PHONY: setup data test api web dev
+.PHONY: setup data model test api web dev
 
 setup:            ## create the Python venv and install both apps
 	python3 -m venv backend/.venv
@@ -10,6 +10,9 @@ setup:            ## create the Python venv and install both apps
 
 data:             ## build the Parquet warehouse and quality report from the local mirror
 	cd backend && .venv/bin/python -m app.data.build
+
+model:            ## train and compare fraud-risk models (MLflow), write backend/data/models/
+	cd backend && MLFLOW_DISABLE_AGENT_HINT=1 .venv/bin/python -m app.ml.fraud
 
 test:             ## workflow tests (rules only, no LLM calls)
 	cd backend && .venv/bin/python -m pytest -q
