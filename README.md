@@ -13,6 +13,8 @@ Needs Python 3.10+, Node 20+, and the organizers' dataset mirror at `~/factored-
 ```bash
 make setup   # Python venv + frontend packages
 make data    # build the Parquet warehouse and data-quality report (about 20 s)
+make model   # train the fraud risk estimate (MLflow), about 10 s
+make eval    # build held-out case sets, evaluate in rules mode, write docs/evaluation.md
 make test    # workflow tests, one per required case (rules only, no LLM calls)
 make dev     # API on :8000 and web app on http://localhost:5173
 ```
@@ -31,6 +33,8 @@ The workflow runs `understand -> decide -> act -> verify -> escalate` as an expl
 ## Documents
 
 - [`docs/idea-brief.md`](docs/idea-brief.md): the problem, the workflow, the required cases, the metrics, and the data limits.
+- [`docs/evaluation.md`](docs/evaluation.md): the held-out evaluation, rules against Claude, with the organizers' outcome measures.
+- [`docs/model-card.md`](docs/model-card.md): the fraud risk estimate, the learned component, against the existing detector.
 - [`docs/build-plan.md`](docs/build-plan.md): architecture, open team decisions, the day plan, the test cases, and the security rules.
 
 ## Data

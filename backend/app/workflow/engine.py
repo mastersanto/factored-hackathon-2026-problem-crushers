@@ -141,6 +141,13 @@ class Engine:
                 # Security flags from the deterministic scan are never dropped by the model.
                 llm_u.other_customer_reference |= rules_u.other_customer_reference
                 llm_u.injection_suspected |= rules_u.injection_suspected
+                if s.stage == "confirm":
+                    # Closing as "it was mine" ends a possible fraud claim, so the model alone cannot do it:
+                    # a deterministic negation always files the claim, and closing needs both to agree.
+                    if rules_u.intent == "file_claim":
+                        llm_u.intent = "file_claim"
+                    elif llm_u.intent == "confirm_mine" and rules_u.intent != "confirm_mine":
+                        llm_u.intent = "reconfirm"
                 return llm_u
         return rules_u
 
@@ -159,8 +166,9 @@ class Engine:
             yield from self._say(s, [Statement(text=M.t("unauthorized", s.lang), basis="rule", source="policy:own-data-only")], verify=False)
         except Exception as exc:  # safe fallback: never guess, hand to a person
             case = _case_id()
-            self.handoffs.add(self._handoff(s, case, "technical_fallback", open_questions=[f"System error: {type(exc).__name__}"]))
+            handoff = self.handoffs.add(self._handoff(s, case, "technical_fallback", open_questions=[f"System error: {type(exc).__name__}"]))
             yield self._step("escalate", reason="technical_fallback", case_id=case)
+            yield {"type": "handoff", "handoff": handoff}
             yield from self._say(s, [Statement(text=M.t("fallback", s.lang, case=case), basis="rule", source="policy:safe-fallback")], verify=False)
         yield {"type": "done", "stage": s.stage}
 
@@ -198,6 +206,9 @@ class Engine:
             s.stage = "closed"
             yield self._step("act", action="close_recognized", transaction_id=s.tx["transaction_id"])
             yield from self._say(s, [Statement(text=M.t("closed_mine", s.lang), basis="rule", source="policy:recurring-cancel-via-bank")])
+        elif u.intent == "reconfirm" and s.stage == "confirm":
+            yield self._step("decide", action="reconfirm_before_closing")
+            yield from self._say(s, [Statement(text=M.t("ask_confirm", s.lang), basis="rule", source="policy:close-needs-clear-yes")], verify=False)
         elif u.intent == "file_claim" and s.stage == "confirm":
             s.stage = "statement"
             yield self._step("decide", action="collect_statement")

@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 Intent = Literal["dispute_charge", "check_contact", "confirm_mine", "file_claim", "choose_option",
-                 "provide_statement", "out_of_scope", "greeting"]
+                 "provide_statement", "out_of_scope", "greeting", "reconfirm"]
 
 
 class Understanding(BaseModel):
@@ -42,7 +42,12 @@ CHANNEL_WORDS = {"whatsapp": "whatsapp", "sms": "sms", "mensaje de texto": "sms"
 MINE = ["fui yo", "si fui", "lo reconozco", "ya lo reconozco", "si es mio", "es mio", "fui eu", "sim, fui", "reconheco",
         "e meu", "era mio", "ya recorde", "ya me acorde", "lembrei"]
 CLAIM = ["no fui yo", "no lo reconozco", "no reconozco", "reclamar", "reclamo", "fraude", "robo", "robaron",
-         "nao fui eu", "nao reconheco", "contestar", "roubaram", "golpe", "clonaron", "clonada", "no lo hice"]
+         "nao fui eu", "nao reconheco", "contestar", "roubaram", "golpe", "clonaron", "clonada", "no lo hice",
+         "no hice", "nao fiz", "no es mio", "nao e meu", "yo no fui", "eu nao"]
+# At the confirmation step a bare yes/no answers the question.
+CONFIRM_YES = re.compile(r"^\s*(si|sim|claro|correcto|exacto|yes)\b")
+CONFIRM_NO = re.compile(r"^\s*(no|nao|nop|negativo)\b")
+PROBLEM = ["algo anda mal", "algo errado", "problema", "raro", "estranh", "no entiendo", "nao entendo", "error", "erro "]
 INJECTION = ["ignora las instrucciones", "ignore previous", "ignore all", "ignora todo", "system prompt",
              "actua como", "you are now", "olvida tus reglas", "ignore as instrucoes", "developer mode"]
 OUT_OF_SCOPE = ["prestamo", "credito nuevo", "invertir", "hipoteca", "abrir una cuenta", "emprestimo", "transferir dinero",
@@ -51,6 +56,12 @@ GREETING = ["hola", "buenas", "buenos dias", "ola", "oi", "bom dia"]
 
 AMOUNT_RE = re.compile(r"(?<![\w/])(?:\$|usd|cop|ars|r\$)?\s*(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?!\s*/)")
 DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b")
+MONTH_NAMES = {m: i + 1 for i, m in enumerate(["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+                                               "septiembre", "octubre", "noviembre", "diciembre"])}
+MONTH_NAMES.update({m: i + 1 for i, m in enumerate(["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho",
+                                                    "agosto", "setembro", "outubro", "novembro", "dezembro"])})
+MONTH_NAMES["setiembre"] = 9
+NAMED_DATE_RE = re.compile(r"\b(\d{1,2})\s+de\s+(" + "|".join(sorted(MONTH_NAMES, key=len, reverse=True)) + r")(?:\s+(?:de|del)\s+(\d{4}))?\b")
 CUSTOMER_ID_RE = re.compile(r"\bCLI-[A-Z0-9]{6,}\b", re.I)
 
 
@@ -80,7 +91,9 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         if _norm(m) in t:
             u.merchant = m
             break
-    text_wo_dates = DATE_RE.sub(" ", text)
+    named = NAMED_DATE_RE.search(_norm(text))
+    text_wo_dates = NAMED_DATE_RE.sub(" ", _norm(text))
+    text_wo_dates = DATE_RE.sub(" ", text_wo_dates)
     for raw in AMOUNT_RE.findall(text_wo_dates.lower()):
         val = _parse_amount(raw)
         if val and val >= 1 and not (1900 <= val <= 2100 and "." not in raw and "," not in raw):
@@ -90,6 +103,13 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.date = (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     elif " hoy " in t or " hoje " in t:
         u.date = today.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif named:
+        d, mo, y = int(named.group(1)), MONTH_NAMES[named.group(2)], named.group(3)
+        year = int(y) if y else (today.year if (mo, d) <= (today.month, today.day) else today.year - 1)
+        try:
+            u.date = datetime(year, mo, d)
+        except ValueError:
+            pass
     elif (m := DATE_RE.search(text)):
         d, mo, y = int(m.group(1)), int(m.group(2)), m.group(3)
         year = today.year if not y else (int(y) + 2000 if len(y) == 2 else int(y))
@@ -113,6 +133,10 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.intent, u.option = "choose_option", int(m.group(1))
     elif expecting == "statement":
         u.intent = "provide_statement"
+    elif expecting == "confirm" and CONFIRM_NO.match(t.strip()):
+        u.intent = "file_claim"
+    elif expecting == "confirm" and CONFIRM_YES.match(t.strip()) and not any(k in t for k in CLAIM):
+        u.intent = "confirm_mine"
     elif any(k in t for k in CONTACT) and any(k in t for k in ["banco", "bank", "del banco", "do banco", "supuestamente", "decia ser", "dizia ser"]):
         u.intent = "check_contact"
     elif any(k in t for k in CLAIM):  # before MINE: "no fui yo" contains "fui yo"
@@ -121,7 +145,7 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.intent = "confirm_mine"
     elif any(k in t for k in OUT_OF_SCOPE):
         u.intent = "out_of_scope"
-    elif u.amount or u.merchant or any(k in t for k in ["cargo", "cobro", "compra", "cobranca", "debito", "movimiento", "transaccion"]) or any(k in t for k in CLAIM):
+    elif u.amount or u.merchant or any(k in t for k in ["cargo", "cobro", "compra", "cobranca", "debito", "movimiento", "transaccion", "movimentacao"]) or any(k in t for k in CLAIM) or any(k in t for k in PROBLEM):
         u.intent = "dispute_charge"
     elif any(t.strip().startswith(g) for g in GREETING):
         u.intent = "greeting"
