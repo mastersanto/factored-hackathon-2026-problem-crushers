@@ -170,7 +170,7 @@ class Engine:
             yield self._step("escalate", reason="technical_fallback", case_id=case)
             yield {"type": "handoff", "handoff": handoff}
             yield from self._say(s, [Statement(text=M.t("fallback", s.lang, case=case), basis="rule", source="policy:safe-fallback")], verify=False)
-        yield {"type": "done", "stage": s.stage}
+        yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang)}
 
     def _turn(self, s: Session, text: str) -> Iterator[dict]:
         u = self._understand(s, text)

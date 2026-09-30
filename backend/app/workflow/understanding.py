@@ -33,7 +33,8 @@ def _norm(text: str) -> str:
 
 
 PT_MARKERS = ["nao ", "voce", "cobranca", "cartao", "reconheco", "obrigad", "ontem", "hoje", "ligacao",
-              "mensagem", "senha", "compra no", "fui eu", "nao fui", "estou", "meu ", "minha "]
+              "mensagem", "senha", "compra no", "fui eu", "nao fui", "estou", "meu ", "minha ", "ligaram", "dizendo",
+              "pediram", "chegou", "do banco", "cobraram", "compartilhei", "voces", "fatura", "tem uma", "apareceu"]
 SECRET = ["codigo", "clave", "contrasena", "nip", " pin", "token", "senha", "cvv", "otp"]
 CONTACT = ["me llamaron", "llamada", "llamo", "mensaje", "sms", "whatsapp", "correo", "email", "e-mail",
            "me escribieron", "ligacao", "ligaram", "mensagem", "notificacion", "notificacao", "alerta"]

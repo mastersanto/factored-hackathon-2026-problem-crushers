@@ -128,3 +128,14 @@ TX_KINDS = {
 
 def t(key: str, lang: str, **kw) -> str:
     return T[key][lang].format(**kw)
+
+
+# Quick replies offered after each question the assistant asks, by conversation stage and language.
+# Each one is understood by the rules as well as by the model (checked in tests/test_workflow.py).
+QUICK_REPLIES = {
+    "confirm": {"es": ["Sí, fui yo", "No fui yo"], "pt": ["Sim, fui eu", "Não fui eu"]},
+    "statement": {"es": ["Tengo la tarjeta y no compartí ningún código", "Compartí un código por teléfono", "Perdí la tarjeta"],
+                  "pt": ["Estou com o cartão e não compartilhei nenhum código", "Compartilhei um código por telefone", "Perdi o cartão"]},
+    "contact_shared": {"es": ["Sí, lo compartí", "No, no compartí nada"], "pt": ["Sim, compartilhei", "Não, não compartilhei nada"]},
+}
+

@@ -10,7 +10,8 @@ const VERDICT: Record<string, { label: string; tone: string }> = {
 }
 
 export function Chat({ sessionId, firstName, suggestions }: { sessionId: string; firstName: string; suggestions: string[] }) {
-  const { turns, busy, stage, send } = useChat(sessionId)
+  const { turns, busy, stage, replies, send } = useChat(sessionId)
+  const chips = replies ?? suggestions
   const [text, setText] = useState('')
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }) }, [turns])
@@ -27,8 +28,8 @@ export function Chat({ sessionId, firstName, suggestions }: { sessionId: string;
           {busy && <div className="typing">…</div>}
           <div ref={end} />
         </div>
-        <div className="suggestions">
-          {suggestions.map((s) => <button key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
+        <div className={`suggestions${replies ? ' replies' : ''}`}>
+          {chips.map((s) => <button key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
         </div>
         <form className="composer" onSubmit={(e) => { e.preventDefault(); submit(text) }}>
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Escriba en español o português…" disabled={busy} />

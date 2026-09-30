@@ -127,3 +127,26 @@ def test_invalid_session_rejected():
 def test_amount_parsing(text, expected):
     from app.workflow.understanding import _parse_amount
     assert _parse_amount(text) == expected
+
+
+def test_quick_replies_follow_the_question_and_work():
+    sid, d = session("Colombia, card purchase")
+    ev = say(sid, f"No reconozco un cargo de {amount_text(d['hint']['amount'])} en {d['hint']['merchant']}")
+    replies = of(ev, "done")[-1]["suggestions"]
+    assert replies == ["Sí, fui yo", "No fui yo"]
+    ev = say(sid, replies[1])                                   # "No fui yo" files the claim
+    replies = of(ev, "done")[-1]["suggestions"]
+    assert of(ev, "done")[-1]["stage"] == "statement" and len(replies) == 3
+    ev = say(sid, replies[1])                                   # "Compartí un código por teléfono"
+    h = of(ev, "handoff")[0]["handoff"]
+    assert h["shared_secret"] is True and h["priority"] == "high"
+    assert of(ev, "done")[-1]["suggestions"] is None            # closed: back to the starter examples
+
+
+def test_quick_replies_in_portuguese_after_a_scam_contact():
+    sid, _ = session("Argentina, card purchase")
+    ev = say(sid, "Me ligaram dizendo ser do banco e pediram o código que chegou por SMS")
+    replies = of(ev, "done")[-1]["suggestions"]
+    assert replies == ["Sim, compartilhei", "Não, não compartilhei nada"]
+    ev = say(sid, replies[1])
+    assert not of(ev, "handoff") and of(ev, "done")[-1]["stage"] == "start"

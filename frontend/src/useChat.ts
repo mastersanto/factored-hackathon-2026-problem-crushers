@@ -9,13 +9,15 @@ export function useChat(sessionId: string | null) {
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState('start')
+  // Quick replies for the assistant's latest question; null means "use the starter examples".
+  const [replies, setReplies] = useState<string[] | null>(null)
 
   const send = useCallback(async (text: string) => {
     if (!sessionId || busy || !text.trim()) return
     setBusy(true)
     setTurns((t) => [...t, { role: 'customer', events: [], text }, { role: 'assistant', events: [] }])
     const push = (e: ChatEvent) => {
-      if (e.type === 'done') setStage(e.stage)
+      if (e.type === 'done') { setStage(e.stage); setReplies(e.suggestions) }
       setTurns((t) => {
         const copy = t.slice()
         const last = copy[copy.length - 1]
@@ -32,6 +34,6 @@ export function useChat(sessionId: string | null) {
     }
   }, [sessionId, busy])
 
-  const reset = useCallback(() => { setTurns([]); setStage('start') }, [])
-  return { turns, busy, stage, send, reset }
+  const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null) }, [])
+  return { turns, busy, stage, replies, send, reset }
 }

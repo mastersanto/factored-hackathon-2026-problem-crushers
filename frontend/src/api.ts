@@ -10,7 +10,7 @@ export type ChatEvent =
   | { type: 'verdict'; verdict: 'scam_asks_secret' | 'bank_contact' | 'no_record'; channel: string }
   | { type: 'handoff'; handoff: Handoff }
   | { type: 'error'; code: string; text: string }
-  | { type: 'done'; stage: string }
+  | { type: 'done'; stage: string; suggestions: string[] | null }
 
 export interface Candidate { option: number; transaction_id: string; when: string; amount: string; merchant: string; status: string }
 
