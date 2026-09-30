@@ -33,10 +33,14 @@ The `data` JSON always has a `type` field equal to the event name. Events arrive
 | `verdict` | `verdict` (`scam_asks_secret`, `bank_contact`, or `no_record`); `channel` | Result of the "is this really my bank?" check |
 | `handoff` | `handoff: {case_id}` only | A case was sent to a person. The full handoff (case type, priority, risk estimate, security flags, internal notes) stays server-side and is available only from `GET /api/handoffs`. Streaming it would disclose internal assessments and, for compliance holds, tip off the customer. |
 | `error` | `code` (for example `session_expired`); `text` | The turn could not proceed. No data is returned. |
-| `done` | `stage`; `suggestions: string[] \| null` | End of turn. The quick replies for the assistant's question are in the customer's language; `null` means none. |
+| `done` | `stage`; `suggestions: string[] \| null`; `lang` (`es` or `pt`, added by feature 002) | End of turn. The quick replies for the assistant's question are in the customer's language; `null` means none. |
 
 ## Guarantees the contract makes
 
 - **No other customer's data.** No event carries data belonging to anyone but the session's customer (constitution II).
 - **No unsourced facts.** Every `message.statements[*]` with basis `known` or `rule` has a non-empty `source`, and `message.text` contains no number absent from its statements (constitution III).
 - **Exactly one handoff per escalation.** A `handoff` event is emitted whenever a handoff is created, including the technical fallback and compliance holds. It carries nothing but the case number.
+
+## Added by feature 002
+
+Downloading the conversation as a PDF (`POST /api/transcript`) and checking one (`POST /api/transcripts/verify`), and the `conversation_ref` returned by `POST /api/session`: see [`specs/002-chat-transcript-pdf/contracts/http-api.md`](../../002-chat-transcript-pdf/contracts/http-api.md).

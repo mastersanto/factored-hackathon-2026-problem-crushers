@@ -28,7 +28,7 @@ def load_env_files(*paths: Path) -> None:
 load_env_files(REPO_DIR / ".env.local", REPO_DIR / ".env")
 
 
-def normalize_credentials(names=("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")) -> None:
+def normalize_credentials(names=("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "TRANSCRIPT_HMAC_KEY")) -> None:
     """Strip whitespace and surrounding quotes from credentials. `docker --env-file` and some hosts pass
     KEY="value" through literally, which the API then rejects as an invalid key."""
     for name in names:
@@ -58,6 +58,10 @@ class Settings:
     max_llm_usd: float = float(os.environ.get("MAX_LLM_USD", "5.0"))            # total model spend; then rules mode
     session_max_turns: int = int(os.environ.get("SESSION_MAX_TURNS", "40"))     # per conversation
     sessions_per_ip_hour: int = int(os.environ.get("SESSIONS_PER_IP_HOUR", "30"))
+    # Transcript PDFs (specs/002): the key for check codes, and the fingerprint register (no conversation text).
+    transcript_hmac_key: str = os.environ.get("TRANSCRIPT_HMAC_KEY", "")
+    transcript_requests_per_ip_hour: int = int(os.environ.get("TRANSCRIPT_REQUESTS_PER_IP_HOUR", "60"))  # downloads and checks
+    transcripts_path: Path = Path(os.environ.get("TRANSCRIPTS_PATH", BACKEND_DIR / "data" / "transcripts.jsonl")).expanduser()
 
 
 settings = Settings()

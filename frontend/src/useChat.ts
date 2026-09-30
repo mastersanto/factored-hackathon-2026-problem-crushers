@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { streamChat, type ChatEvent } from './api'
+import { streamChat, type ChatEvent, type Lang } from './api'
 
 export interface Turn { role: 'customer' | 'assistant'; events: ChatEvent[]; text?: string }
 
@@ -11,13 +11,17 @@ export function useChat(sessionId: string | null) {
   const [stage, setStage] = useState('start')
   // Quick replies for the assistant's latest question; null means "use the starter examples".
   const [replies, setReplies] = useState<string[] | null>(null)
+  // Language of the latest reply: labels the transcript button (specs/002, FR-109).
+  const [lang, setLang] = useState<Lang>('es')
+  // At least one turn has finished: the transcript has something to export.
+  const [completed, setCompleted] = useState(false)
 
   const send = useCallback(async (text: string) => {
     if (!sessionId || busy || !text.trim()) return
     setBusy(true)
     setTurns((t) => [...t, { role: 'customer', events: [], text }, { role: 'assistant', events: [] }])
     const push = (e: ChatEvent) => {
-      if (e.type === 'done') { setStage(e.stage); setReplies(e.suggestions) }
+      if (e.type === 'done') { setStage(e.stage); setReplies(e.suggestions); setCompleted(true); if (e.lang) setLang(e.lang) }
       setTurns((t) => {
         const copy = t.slice()
         const last = copy[copy.length - 1]
@@ -34,6 +38,6 @@ export function useChat(sessionId: string | null) {
     }
   }, [sessionId, busy])
 
-  const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null) }, [])
-  return { turns, busy, stage, replies, send, reset }
+  const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null); setCompleted(false) }, [])
+  return { turns, busy, stage, replies, lang, completed, send, reset }
 }

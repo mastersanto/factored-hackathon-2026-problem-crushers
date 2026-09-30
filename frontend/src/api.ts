@@ -10,7 +10,9 @@ export type ChatEvent =
   | { type: 'verdict'; verdict: 'scam_asks_secret' | 'bank_contact' | 'no_record'; channel: string }
   | { type: 'handoff'; handoff: { case_id: string } }  // the customer sees only the case number
   | { type: 'error'; code: string; text: string }
-  | { type: 'done'; stage: string; suggestions: string[] | null }
+  | { type: 'done'; stage: string; suggestions: string[] | null; lang?: Lang }
+
+export type Lang = 'es' | 'pt'
 
 export interface Candidate { option: number; transaction_id: string; when: string; amount: string; merchant: string; status: string }
 
@@ -52,7 +54,49 @@ export const api = {
   handoffs: () => fetch('/api/handoffs').then(json<Handoff[]>),
   startSession: (customer_id: string) =>
     fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id }) })
-      .then(json<{ session_id: string; customer: { first_name: string; country: string } }>),
+      .then(json<{ session_id: string; conversation_ref: string; customer: { first_name: string; country: string } }>),
+}
+
+export class HttpError extends Error {
+  status: number
+  constructor(status: number, message: string) { super(message); this.status = status }
+}
+
+/** Download the conversation as a PDF (specs/002). The server builds it from what it streamed to this
+ *  session; the browser only saves the file. Returns the check code printed on it. */
+export async function downloadTranscript(sessionId: string, conversationRef: string): Promise<string> {
+  const res = await fetch('/api/transcript', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, conversation_ref: conversationRef }),
+  })
+  if (!res.ok) throw new HttpError(res.status, res.statusText)
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'conversacion.pdf'
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return res.headers.get('X-Check-Code') ?? ''
+}
+
+export interface Verification {
+  result: 'match' | 'altered' | 'unknown_version' | 'unreadable'
+  check_code?: string | null
+  registered?: boolean
+  generated_at?: string
+  case_ids?: string[]
+}
+
+export async function verifyTranscript(file: File): Promise<Verification> {
+  const body = new FormData()
+  body.append('file', file)
+  const res = await fetch('/api/transcripts/verify', { method: 'POST', body })
+  if (res.status === 413) return { result: 'unreadable' }
+  return json<Verification>(res)
 }
 
 /** POST a chat turn and call onEvent for each server-sent event as it arrives. */

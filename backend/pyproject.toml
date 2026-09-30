@@ -11,6 +11,11 @@ dependencies = [
     "pydantic>=2.13,<3",
     "scikit-learn>=1.7,<2",
     "joblib>=1.4",
+    # Transcript PDFs: pinned exactly, since verification re-renders byte for byte (specs/002 research §3, §5).
+    "fpdf2==2.8.9",
+    "pypdf==6.19.0",
+    "tzdata>=2024.1",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

@@ -13,7 +13,8 @@ RUN npm run build
 # --- runtime ---
 FROM python:3.10-slim AS app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    WAREHOUSE_DIR=/app/data/warehouse FRONTEND_DIST=/app/frontend/dist HANDOFFS_PATH=/app/data/handoffs.jsonl
+    WAREHOUSE_DIR=/app/data/warehouse FRONTEND_DIST=/app/frontend/dist HANDOFFS_PATH=/app/data/handoffs.jsonl \
+    TRANSCRIPTS_PATH=/app/data/transcripts.jsonl
 WORKDIR /app/backend
 COPY backend/pyproject.toml ./
 COPY backend/app ./app

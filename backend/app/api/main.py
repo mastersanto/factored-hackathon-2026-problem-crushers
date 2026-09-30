@@ -8,14 +8,14 @@ import json
 import logging
 import os
 from pathlib import Path
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 import time
 from collections import defaultdict, deque
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -23,6 +23,10 @@ from app.config import settings
 from app.data.store import get_store
 from app.llm.claude import make_llm
 from app.tools import banking
+from app.transcript import fingerprint as transcript_keys
+from app.transcript.fingerprint import FingerprintRegister, sign
+from app.transcript.render import file_name, render
+from app.transcript.verify import verify
 from app.workflow.engine import Engine, HandoffQueue, SessionStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -30,16 +34,22 @@ log = logging.getLogger("api")
 
 app = FastAPI(title="Explain this charge", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-                   allow_methods=["*"], allow_headers=["*"])
+                   allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition", "X-Check-Code"])
 
 store = get_store()
 llm = make_llm()
 engine = Engine(store, HandoffQueue(), llm)
 sessions = SessionStore()
+transcripts = FingerprintRegister()  # check-code fingerprints only, never conversation text (specs/002)
 
 
 class SessionRequest(BaseModel):
     customer_id: str = Field(pattern=r"^CLI-[A-Z0-9]{6,}$")
+
+
+class TranscriptRequest(BaseModel):
+    session_id: str
+    conversation_ref: str | None = Field(default=None, max_length=40)
 
 
 class ChatRequest(BaseModel):
@@ -50,7 +60,8 @@ class ChatRequest(BaseModel):
 @app.get("/api/health")
 def health():
     return {"status": "ok", "as_of": store.as_of, "llm_enabled": llm is not None,
-            "models": {"understand": settings.understand_model, "phrase": settings.phrase_model} if llm else None}
+            "models": {"understand": settings.understand_model, "phrase": settings.phrase_model} if llm else None,
+            "transcript_verification": transcript_keys.KEY_MODE}
 
 
 @app.get("/api/demo/customers")
@@ -99,22 +110,30 @@ def _client_ip(request: Request) -> str:
     return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
 
 
-@app.post("/api/session")
-def create_session(req: SessionRequest, request: Request):
-    # Abuse guard for a public demo link: a bounded number of new sessions per visitor per hour.
+_transcript_log: dict[str, deque] = defaultdict(deque)
+
+
+def _limit(log_: dict[str, deque], request: Request, per_hour: int, detail: str) -> None:
+    """Abuse guard for a public demo link: a bounded number of requests per visitor per hour."""
     ip, now = _client_ip(request), time.time()
-    recent = _session_log[ip]
+    recent = log_[ip]
     while recent and now - recent[0] > 3600:
         recent.popleft()
-    if len(recent) >= settings.sessions_per_ip_hour:
-        raise HTTPException(429, "too many sessions; try again later")
+    if len(recent) >= per_hour:
+        raise HTTPException(429, detail)
     recent.append(now)
+
+
+@app.post("/api/session")
+def create_session(req: SessionRequest, request: Request):
+    _limit(_session_log, request, settings.sessions_per_ip_hour, "too many sessions; try again later")
     customer = banking.get_customer(store, req.customer_id)
     if not customer:
         raise HTTPException(404, "unknown customer")
     s = sessions.create(customer)
     log.info("session created for %s", customer.customer_id)
-    return {"session_id": s.id, "customer": {"first_name": customer.first_name, "country": customer.country},
+    return {"session_id": s.id, "conversation_ref": s.conversation_ref,
+            "customer": {"first_name": customer.first_name, "country": customer.country},
             "expires_in_seconds": settings.session_ttl_seconds}
 
 
@@ -125,12 +144,57 @@ def chat(req: ChatRequest):
         raise HTTPException(401, "invalid session")
 
     def stream():
-        for event in engine.handle(s, req.text):
-            if event.get("internal"):  # staff-only trace (risk estimate, compliance holds, case types): never sent
-                continue
-            yield f"event: {event['type']}\ndata: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
+        # The transcript records exactly what is sent, after the internal filter (specs/002, FR-106), and
+        # commits the turn when the stream ends, including when the client disconnects.
+        s.transcript.begin(req.text)
+        try:
+            for event in engine.handle(s, req.text):
+                if event.get("internal"):  # staff-only trace (risk estimate, compliance holds, case types): never sent
+                    continue
+                s.transcript.record(event)
+                yield f"event: {event['type']}\ndata: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
+        finally:
+            s.transcript.commit()
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+@app.post("/api/transcript")
+def transcript_pdf(req: TranscriptRequest, request: Request):
+    """The customer's copy of their own conversation, as shown, with a check code (specs/002).
+    No model call: the PDF is rendered from what was streamed to this session."""
+    s = sessions.get(req.session_id)
+    if not s or s.expired():
+        raise HTTPException(401, "invalid session")
+    if req.conversation_ref and req.conversation_ref != s.conversation_ref:
+        s.security_flags.append("transcript_other_conversation")
+        log.warning("transcript request for another conversation refused (session %s)", s.conversation_ref)
+        raise HTTPException(403, "not your conversation")
+    _limit(_transcript_log, request, settings.transcript_requests_per_ip_hour, "too many requests; try again later")
+    if not s.transcript.has_turns:
+        raise HTTPException(409, "nothing to export yet")
+    snapshot = s.transcript.snapshot(conversation_ref=s.conversation_ref, first_name=s.customer.first_name,
+                                     country=s.customer.country, generated_at=datetime.now(timezone.utc))
+    signed, fp = sign(snapshot)
+    pdf = render(signed)
+    transcripts.add(signed, fp)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{file_name(signed)}"',
+                             "X-Check-Code": signed["check_code"], "Cache-Control": "no-store"})
+
+
+MAX_VERIFY_BYTES = 2 * 1024 * 1024
+
+
+@app.post("/api/transcripts/verify")
+async def verify_transcript(request: Request, file: UploadFile = File(...)):
+    """Match, altered, unknown version, or unreadable. The upload is not stored, and the answer never
+    contains message text. Unauthenticated in the demo, like the specialist queue (docs/limitations.md)."""
+    _limit(_transcript_log, request, settings.transcript_requests_per_ip_hour, "too many requests; try again later")
+    data = await file.read(MAX_VERIFY_BYTES + 1)
+    if len(data) > MAX_VERIFY_BYTES:
+        raise HTTPException(413, "file too large")
+    return verify(data, transcripts)
 
 
 @app.get("/api/handoffs")

@@ -1,16 +1,55 @@
 import { useQuery } from '@tanstack/react-query'
-import { api, type Handoff } from './api'
+import { useState } from 'react'
+import { api, verifyTranscript, type Handoff, type Verification } from './api'
 
 const PRIORITY_ORDER = { urgent: 0, high: 1, normal: 2 } as const
 
 /** What the human specialist receives: a structured handoff, not a transcript. */
 export function AgentQueue() {
+  return <><VerifyPdf /><Queue /></>
+}
+
+function Queue() {
   const { data, isLoading, error } = useQuery({ queryKey: ['handoffs'], queryFn: api.handoffs, refetchInterval: 3000 })
   if (isLoading) return <p className="muted">Cargando…</p>
   if (error) return <p className="verdict bad">{String(error)}</p>
   const items = [...(data ?? [])].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
   if (!items.length) return <p className="muted">Sin casos todavía. Abra un reclamo desde el chat.</p>
   return <div className="queue">{items.map((h) => <HandoffCard key={h.case_id} h={h} />)}</div>
+}
+
+const RESULT: Record<Verification['result'], { label: string; tone: string }> = {
+  match: { label: 'Coincide', tone: 'good' },
+  altered: { label: 'Alterado', tone: 'bad' },
+  unknown_version: { label: 'Versión desconocida', tone: 'warn' },
+  unreadable: { label: 'No legible', tone: 'bad' },
+}
+
+/** Check a customer's transcript PDF against its check code (specs/002). Only the original file matches. */
+function VerifyPdf() {
+  const [result, setResult] = useState<Verification | null>(null)
+  const [busy, setBusy] = useState(false)
+  const onFile = async (file: File | undefined) => {
+    if (!file) return
+    setBusy(true)
+    try { setResult(await verifyTranscript(file)) } catch { setResult({ result: 'unreadable' }) } finally { setBusy(false) }
+  }
+  const r = result && RESULT[result.result]
+  return (
+    <div className="verify">
+      <label><strong>Verificar PDF de conversación</strong>{' '}
+        <input type="file" accept="application/pdf" disabled={busy} onChange={(e) => void onFile(e.target.files?.[0])} />
+      </label>
+      {result && r && (
+        <div className={`verdict ${r.tone}`}>
+          {r.label}
+          {result.check_code && <> · {result.check_code}</>}
+          {result.result === 'match' && <> · {result.registered ? 'registrado' : 'no está en el registro actual'}
+            {result.case_ids && result.case_ids.length > 0 && <> · {result.case_ids.join(', ')}</>}</>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function HandoffCard({ h }: { h: Handoff }) {

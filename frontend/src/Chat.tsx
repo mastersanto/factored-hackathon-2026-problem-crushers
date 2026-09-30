@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChatEvent, Statement } from './api'
+import { downloadTranscript, HttpError, type ChatEvent, type Lang, type Statement } from './api'
 import { useChat, type Turn } from './useChat'
 
 const BASIS_LABEL: Record<Statement['basis'], string> = { known: 'verificado', guessed: 'estimación', rule: 'política' }
@@ -9,8 +9,27 @@ const VERDICT: Record<string, { label: string; tone: string }> = {
   bank_contact: { label: 'Contacto real del banco', tone: 'good' },
 }
 
-export function Chat({ sessionId, firstName, suggestions }: { sessionId: string; firstName: string; suggestions: string[] }) {
-  const { turns, busy, stage, replies, send } = useChat(sessionId)
+// Transcript download texts, following the language of the latest reply (specs/002, FR-109).
+const PDF_TEXT: Record<Lang, { button: string; saved: string; expired: string; failed: string; hint: string }> = {
+  es: { button: 'Descargar conversación (PDF)', saved: 'Descargado · código de verificación', expired: 'Sesión expirada; inicie sesión de nuevo',
+        failed: 'No se pudo generar el PDF', hint: 'Puede descargar una copia de esta conversación' },
+  pt: { button: 'Baixar conversa (PDF)', saved: 'Baixado · código de verificação', expired: 'Sessão expirada; entre novamente',
+        failed: 'Não foi possível gerar o PDF', hint: 'Você pode baixar uma cópia desta conversa' },
+}
+
+export function Chat({ sessionId, conversationRef, firstName, suggestions }:
+  { sessionId: string; conversationRef: string; firstName: string; suggestions: string[] }) {
+  const { turns, busy, stage, replies, lang, completed, send } = useChat(sessionId)
+  const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
+  const t = PDF_TEXT[lang]
+  const download = async () => {
+    try {
+      const code = await downloadTranscript(sessionId, conversationRef)
+      setPdf({ tone: 'good', text: `${t.saved}: ${code}` })
+    } catch (err) {
+      setPdf({ tone: 'bad', text: err instanceof HttpError && err.status === 401 ? t.expired : `${t.failed} (${String(err)})` })
+    }
+  }
   const chips = replies ?? suggestions
   const [text, setText] = useState('')
   const end = useRef<HTMLDivElement>(null)
@@ -22,9 +41,13 @@ export function Chat({ sessionId, firstName, suggestions }: { sessionId: string;
   return (
     <div className="chat-layout">
       <section className="chat">
+        <div className="chat-tools">
+          <button className="link" disabled={busy || !completed} onClick={() => void download()}>{t.button}</button>
+          {pdf && <span className={`small ${pdf.tone}`}>{pdf.text}</span>}
+        </div>
         <div className="messages">
           {turns.length === 0 && <p className="muted">Sesión iniciada como {firstName}. Escriba su consulta o use un ejemplo.</p>}
-          {turns.map((t, i) => <TurnView key={i} turn={t} onPick={submit} />)}
+          {turns.map((turn, i) => <TurnView key={i} turn={turn} onPick={submit} hint={t.hint} />)}
           {busy && <div className="typing">…</div>}
           <div ref={end} />
         </div>
@@ -50,7 +73,7 @@ export function Chat({ sessionId, firstName, suggestions }: { sessionId: string;
   )
 }
 
-function TurnView({ turn, onPick }: { turn: Turn; onPick: (v: string) => void }) {
+function TurnView({ turn, onPick, hint }: { turn: Turn; onPick: (v: string) => void; hint: string }) {
   if (turn.role === 'customer') return <div className="bubble customer">{turn.text}</div>
   return (
     <div className="assistant">
@@ -82,7 +105,7 @@ function TurnView({ turn, onPick }: { turn: Turn; onPick: (v: string) => void })
           case 'verdict':
             return <div key={i} className={`verdict ${VERDICT[e.verdict].tone}`}>{VERDICT[e.verdict].label}</div>
           case 'handoff':
-            return <div key={i} className="handoff-note">Caso {e.handoff.case_id} enviado a un especialista</div>
+            return <div key={i} className="handoff-note">Caso {e.handoff.case_id} enviado a un especialista<br /><span className="muted small">{hint}</span></div>
           case 'error':
             return <div key={i} className="verdict bad">{e.text}</div>
           default:

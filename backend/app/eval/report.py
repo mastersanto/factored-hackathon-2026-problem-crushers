@@ -55,6 +55,8 @@ def main() -> None:
         "",
         "## Workload",
         "",
+        "> **Note (2026-09-30)**: to measure masking in the transcript PDF, 8 phrasings per set now include a test card number or a code the customer shared, with the same expected outcomes. Rules-mode results are on the current sets. Claude-mode results were recorded before that change, on sets that differ only in those 8 phrasings.",
+        "",
         f"Each set has {len(CATEGORIES) * 12} held-out cases: {len(CATEGORIES)} categories × 2 languages (Spanish, Portuguese) × 6 cases.",
         "",
         "- **Conversations**: team-generated from templates and labelled as such.",
@@ -129,6 +131,29 @@ def main() -> None:
                         cells.append(f"{b['correct']} / {b['unsafe']} / {b['p50_ms']}" if b else "n/a")
                 lines.append(f"| {g} | " + " | ".join(cells) + " |")
         lines.append("")
+    tr_rows = [("complete_in_order", "PDF complete and in order (SC-102)"),
+               ("internal_or_other_customer_data", "Internal or other customers' data in the PDF (SC-103)"),
+               ("internal_data_compliance_cases", "... of which compliance-review cases"),
+               ("seeded_secrets_unmasked", "Seeded card numbers or codes left unmasked (SC-104)"),
+               ("originals_verified", "Original PDFs that verify (SC-107)"),
+               ("tampered_copies_rejected", "Tampered or re-saved copies rejected (SC-107)"),
+               ("ms_p50", "Time per PDF, p50 (ms)"), ("ms_p95", "Time per PDF, p95 (ms, SC-101: under 5000)")]
+    short = {"dev": "Dev", "test-seen": "Test, familiar", "test-heldout": "Test, held-out"}
+    tr = [(short[name], load(name, "rules")) for name, _ in SETS]
+    tr = [(title, r["repeats"][0]["aggregate"]["transcript"]) for title, r in tr if r and r["repeats"][0]["aggregate"].get("transcript")]
+    if tr:
+        lines += ["## Transcript PDF", "",
+                  "The customer's PDF of each conversation (specs/002), built from the same events the chat streamed, then checked. "
+                  "Rules mode: the PDF never calls a model, so it behaves the same whichever mode wrote the replies.", "",
+                  "| Measure | " + " | ".join(t for t, _ in tr) + " |", "|---|" + "---:|" * len(tr)]
+        for key, label in tr_rows:
+            lines.append(f"| {label} | " + " | ".join(str(a[key]) for _, a in tr) + " |")
+        lines += ["",
+                  "- **Complete**: every assistant message, statement label and source, candidate, verdict, and case number appears in the PDF text in order. Text extraction is used as a measurement only; verification never relies on it.",
+                  "- **Internal data**: case types, priority, risk, and compliance terms, and any customer ID in what the assistant said or in the header.",
+                  "- **Seeded secrets**: per set, one message per language carries a test card number and half of the \"I shared a code\" answers name the code.",
+                  "- **Tampers**, four per PDF: an edited visible message with the original attachment, edited embedded data, a swapped conversation reference, and a copy re-saved by another PDF tool.",
+                  "- **Not automated**: whether readers who didn't see the chat understand the document (SC-105), a manual check recorded when done.", ""]
     first = {n: EVAL_DIR / "run1" / f"results-{n}-llm.json" for n in ("test-seen", "test-heldout")}
     lines += ["## What the evaluation changed", "",
               "The harness found real defects. Each fix is general, not tied to one case. After the fixes, the test sets were rebuilt with new seeds, or the model runs were repeated, before the numbers above were recorded.", "",

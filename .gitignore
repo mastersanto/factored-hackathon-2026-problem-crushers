@@ -5,6 +5,9 @@
 *.parquet
 *.duckdb
 *.db
+# Transcript PDFs downloaded from the demo hold synthetic customer rows
+conversacion-*.pdf
+conversa-*.pdf
 
 # Secrets
 .env

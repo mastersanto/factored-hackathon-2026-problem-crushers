@@ -8,7 +8,7 @@ type View = 'customer' | 'agent'
 
 export default function App() {
   const [view, setView] = useState<View>('customer')
-  const [session, setSession] = useState<{ id: string; customer: DemoCustomer } | null>(null)
+  const [session, setSession] = useState<{ id: string; conversationRef: string; customer: DemoCustomer } | null>(null)
   const health = useQuery({ queryKey: ['health'], queryFn: api.health })
 
   return (
@@ -30,7 +30,7 @@ export default function App() {
                 <span>{session.customer.first_name} · {session.customer.country}</span>
                 <button className="link" onClick={() => setSession(null)}>cambiar cliente</button>
               </div>
-              <Chat key={session.id} sessionId={session.id} firstName={session.customer.first_name} suggestions={suggestionsFor(session.customer)} />
+              <Chat key={session.id} sessionId={session.id} conversationRef={session.conversationRef} firstName={session.customer.first_name} suggestions={suggestionsFor(session.customer)} />
             </>
           : <DemoLogin onStart={setSession} />}
       </main>
@@ -39,7 +39,7 @@ export default function App() {
 }
 
 /** Stand-in for a trusted identity service: identity comes from the session, never from chat text. */
-function DemoLogin({ onStart }: { onStart: (s: { id: string; customer: DemoCustomer }) => void }) {
+function DemoLogin({ onStart }: { onStart: (s: { id: string; conversationRef: string; customer: DemoCustomer }) => void }) {
   const { data, isLoading, error } = useQuery({ queryKey: ['demo'], queryFn: api.demoCustomers })
   const [busy, setBusy] = useState(false)
   if (isLoading) return <p className="muted">Cargando clientes de demostración…</p>
@@ -52,7 +52,7 @@ function DemoLogin({ onStart }: { onStart: (s: { id: string; customer: DemoCusto
         {data!.map((c) => (
           <button key={c.customer_id} disabled={busy} onClick={async () => {
             setBusy(true)
-            try { const s = await api.startSession(c.customer_id); onStart({ id: s.session_id, customer: c }) } finally { setBusy(false) }
+            try { const s = await api.startSession(c.customer_id); onStart({ id: s.session_id, conversationRef: s.conversation_ref, customer: c }) } finally { setBusy(false) }
           }}>
             <strong>{c.first_name}</strong> · {c.country}<br /><span className="muted small">{c.label}</span>
           </button>

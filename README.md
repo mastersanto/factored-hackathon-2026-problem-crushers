@@ -14,7 +14,7 @@ Real cases reach a person as a structured case, with verified facts, the custome
 
 | | |
 |---|---|
-| **Live demo** | https://explain-this-charge.nicerock-692cf9dc.eastus2.azurecontainerapps.io. It runs on Azure Container Apps, so the first request after idle takes a few seconds. Pick a synthetic test customer, try the suggested messages, and open the **Especialista** tab to see the handoffs. |
+| **Live demo** | https://explain-this-charge.nicerock-692cf9dc.eastus2.azurecontainerapps.io. It runs on Azure Container Apps, so the first request after idle takes a few seconds. Pick a synthetic test customer, try the suggested messages, and open the **Especialista** tab to see the handoffs. After a claim, **Descargar conversación (PDF)** saves the customer's copy, which the Especialista tab can verify. |
 | **Slides** | [`docs/slides/slides.pdf`](docs/slides/slides.pdf) ([PPTX](docs/slides/slides.pptx), [source](docs/slides/slides.md)) |
 | **Video** | *link added after recording* |
 
@@ -58,6 +58,7 @@ flowchart LR
   - a **close guard** means a model's misreading can never close a fraud claim;
   - charges under compliance review are never explained;
   - the customer's device receives only a case number, never internal assessments.
+- **The customer's copy**: the conversation downloads as a PDF with a **check code**. It is built only from what the customer was shown, with any card numbers and codes they typed masked, and it never calls a model. The bank keeps only a keyed fingerprint, never the text. Only the original file verifies: an edited or re-saved copy is reported as altered ([`specs/002-chat-transcript-pdf/`](specs/002-chat-transcript-pdf/)).
 - **Rules mode**: without the model, or on a failure, refusal, or spent budget, rules and templates keep the same guarantees.
 - **Data**: a Parquet warehouse in DuckDB, built from the organizers' dataset with data minimization and 11 quality checks.
 - **Learned component**: an isotonic calibration of the bank's detector score, compared against its fixed threshold on a time split and tracked in MLflow.
@@ -110,3 +111,4 @@ See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what th
 | [`docs/idea-brief.md`](docs/idea-brief.md) | Why this workflow, from the assessment in the team's ideation repository |
 | [`docs/video-script.md`](docs/video-script.md) | The demo video's script |
 | [`specs/001-dispute-intake-assistant/`](specs/001-dispute-intake-assistant/) | Spec, plan, research, data model, API contract, quickstart, tasks |
+| [`specs/002-chat-transcript-pdf/`](specs/002-chat-transcript-pdf/) | The transcript PDF with a check code: spec, plan, research (including why only the original file verifies), contract, tasks |

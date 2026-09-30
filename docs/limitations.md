@@ -30,7 +30,18 @@ What this prototype does not do, what its numbers do not prove, and what a bank 
 - **The synthetic fee schedule was not built.** For the bank's own charges (fees, interest), the assistant files a complete claim but does not explain the fee.
 - **No real channels.** It is web chat only; there is no WhatsApp, phone, or email integration.
 
-## 4. What production would need
+## 4. Transcript PDF and check codes
+
+The customer can download the conversation as a PDF with a check code (`specs/002-chat-transcript-pdf/`). What it does not do:
+
+- **A check code is not a legal electronic signature.** It is a keyed hash (HMAC) that only the bank can compute and check. A court or regulator would expect a signed PDF (PAdES) with a bank certificate. That is future work, and whether a regulator in Mexico, Colombia, or Argentina accepts either is not claimed.
+- **Only the original file verifies.** Verification re-renders the conversation and compares the whole file, since comparing page content alone misses edits (a finding recorded in the research). A copy re-saved by another tool, such as "print to PDF", reports *altered* even if it looks the same. The PDF tells the customer to keep the original.
+- **Verification is unauthenticated in the demo**, like the specialist queue. It returns only match or altered, the time, and the case numbers, which are already printed on the PDF its caller holds. Production would put it behind staff authentication and offer it to regulators through the bank's own channels.
+- **The register is not durable in the demo.** The fingerprint register is a file in the container, lost when the app scales to zero, like the handoffs. A PDF still verifies after that, because the check recomputes the code with the key (kept as a secret). Only "registered" turns false.
+- **Masking is pattern-based.** Card numbers (13 to 19 digits) and codes near words such as *código*, *clave*, *PIN*, or *senha* are masked. A secret written in words, or a number far from any keyword, would not be. The masking applies to the PDF only: the handoff still records the customer's statement as typed.
+- **The renderer is pinned.** Byte-identical output depends on the fpdf2 version. A PDF from an earlier renderer reports *unknown version* rather than a result.
+
+## 5. What production would need
 
 | Area | In the prototype | Needed before a real deployment |
 |---|---|---|
@@ -44,10 +55,11 @@ What this prototype does not do, what its numbers do not prove, and what a bank 
 | **Compliance** | A "never explain" rule for compliance holds; nothing internal streamed to the customer; no promises and no requests for secrets, enforced in code and tested. | A legal review of all customer-facing wording in both languages; an audit log of every decision and its sources; a model-risk review of the fraud estimate. |
 | **Human side** | A specialist queue that shows structured handoffs. | SLAs by case type and country deadline; integration with the bank's case-management system; feedback from specialists to improve handoffs. |
 
-## 5. Future improvements
+## 6. Future improvements
 
 - **Validated rules**: fold in the financial specialist's answers on police reports, recurring-charge cancellation, and fee values.
 - **Synthetic fee schedule**: explain the bank's own charges against published rules.
 - **Richer understanding tests**: real (anonymized) customer messages, multi-intent messages, and adversarial prompts in both languages.
+- **Signed transcripts**: a PAdES signature with a bank certificate, so anyone can verify a transcript offline, and a durable register.
 - **Proactive "is this really my bank?" check**: before a customer shares a code, the bank's app could confirm whether a contact is genuine.
 - **Follow-up stage**: let the customer check the status and deadline of a filed claim, the natural next workflow (`complaint-status-tracker` in the ideation repository).

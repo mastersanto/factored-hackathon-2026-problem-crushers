@@ -12,6 +12,7 @@ backend/data/eval
 backend/data/mlartifacts
 backend/data/mlflow.db
 backend/data/handoffs.jsonl
+backend/data/transcripts.jsonl
 backend/data/models/fraud_report.json
 .specify
 .claude

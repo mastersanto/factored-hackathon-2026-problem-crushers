@@ -35,7 +35,8 @@ It also carries a header, a fixed notice (no promise, not a claim decision), and
 
 - `fpdf2==2.8.9`: renders PDFs and embeds files;
 - `pypdf==6.19.0`: reads uploaded PDFs, their attachments, and their page content;
-- `tzdata`: time zones inside the slim container.
+- `tzdata`: time zones inside the slim container;
+- `python-multipart`: FastAPI's form parser for the verification upload (added during implementation).
 
 Everything else is unchanged: FastAPI, DuckDB, the Anthropic SDK (not used by this feature), and Vite with TanStack Query.
 

@@ -66,6 +66,17 @@ customer (web chat, ES/PT)
    Deployment is needed only for the submission link. It is planned for Friday 10-03, with a small private demo subset.
 4. **Frontend**: React with Vite and TypeScript, plus TanStack Query for the agent view and data fetching. Chat streams over server-sent events (SSE) through a small in-house hook. TanStack AI is **not** used for now (see below).
 
+### Transcript PDF (feature 002, 2026-09-30)
+
+- **The owner's request**: the customer keeps the chat as a PDF, as evidence. **The owner's choice** on verification: option B, a check code, with the bank keeping only a fingerprint and never the text.
+- **Decisions** (details in `specs/002-chat-transcript-pdf/research.md`):
+  - the server records what it streamed, after the internal filter, rather than trusting a transcript sent by the browser;
+  - card numbers and codes are masked when recorded;
+  - the check code is an HMAC with a server secret;
+  - rendering is deterministic, with fpdf2 pinned and a bundled font.
+- **A finding that changed the design**: comparing page content missed an edited character, because pages refer to glyphs by index. Verification compares the whole re-rendered file instead, so only the original download verifies.
+- **Added dependency not in the plan**: `python-multipart`, which FastAPI needs for the upload endpoint.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

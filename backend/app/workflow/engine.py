@@ -25,6 +25,7 @@ from app.data.store import Store
 from app.ml.fraud import load_fraud_risk
 from app.policy import rules as policy
 from app.tools import banking
+from app.transcript.record import TranscriptRecorder
 from app.workflow import messages as M
 from app.workflow.understanding import Understanding, understand as understand_rules
 
@@ -54,6 +55,13 @@ class Session:
     pending_contact: dict | None = None
     security_flags: list[str] = field(default_factory=list)
     turns: int = 0
+    # Printed on transcript PDFs; random and unrelated to the session token, which is a credential.
+    conversation_ref: str = field(default_factory=lambda: "CONV-" + "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(8)))
+    # What the customer was shown, in memory only; it expires with the session (specs/002).
+    transcript: TranscriptRecorder = field(default_factory=TranscriptRecorder)
+
+    def expired(self, now: float | None = None) -> bool:
+        return (now or time.time()) - self.last_seen > settings.session_ttl_seconds
 
 
 class SessionStore:
@@ -158,7 +166,7 @@ class Engine:
     # ---- main entry -------------------------------------------------------------------------
     def handle(self, s: Session, text: str) -> Iterator[dict]:
         now = time.time()
-        if now - s.last_seen > settings.session_ttl_seconds:
+        if s.expired(now):
             yield {"type": "error", "code": "session_expired", "text": M.t("session_expired", s.lang)}
             return
         if s.turns >= settings.session_max_turns:
@@ -177,7 +185,7 @@ class Engine:
             yield self._step("escalate", reason="technical_fallback", case_id=case)
             yield self._handoff_event(handoff)
             yield from self._say(s, [Statement(text=M.t("fallback", s.lang, case=case), basis="rule", source="policy:safe-fallback")], verify=False)
-        yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang)}
+        yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang), "lang": s.lang}
 
     def _turn(self, s: Session, text: str) -> Iterator[dict]:
         u = self._understand(s, text)

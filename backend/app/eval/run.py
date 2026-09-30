@@ -26,6 +26,7 @@ from pathlib import Path
 from app.config import BACKEND_DIR, settings
 from app.data.store import get_store
 from app.eval.cases import CATEGORIES, EVAL_DIR
+from app.eval.transcript_check import check_case
 from app.tools import banking
 from app.workflow.engine import Engine, HandoffQueue, SessionStore
 
@@ -80,7 +81,9 @@ def run_case(engine: Engine, sessions: SessionStore, case: dict, llm) -> dict:
     finally:
         engine.store = store
     usage = llm.usage_log[usage_before:] if llm else []
-    return grade(case, turns, usage, store)
+    result = grade(case, turns, usage, store)
+    result["transcript"] = check_case(case, turns, customer)  # specs/002: the customer's PDF of this conversation
+    return result
 
 
 def grade(case: dict, turns: list[dict], usage: list[dict], store) -> dict:
@@ -191,11 +194,33 @@ def aggregate(results: list[dict]) -> dict:
         "usd_total": round(usd, 4),
         "usd_per_case": round(usd / n, 5) if n else None,
         "usd_per_safe_resolution": round(usd / len(safe_auto), 5) if safe_auto else None,
+        "transcript": transcript_aggregate(results),
         "tokens_per_call": {m: {"in": round(sum(r["tokens"].get(m, {}).get("in", 0) for r in results) / max(1, calls), 1),
                                 "out": round(sum(r["tokens"].get(m, {}).get("out", 0) for r in results) / max(1, calls), 1),
                                 "calls": calls}
                             for m in sorted({m for r in results for m in r.get("tokens", {})})
                             for calls in [sum(r["tokens"].get(m, {}).get("calls", 0) for r in results)]},
+    }
+
+
+def transcript_aggregate(results: list[dict]) -> dict | None:
+    """Transcript PDF measures (specs/002, SC-101..104, SC-107), as counts with denominators."""
+    ts = [r["transcript"] for r in results if r.get("transcript")]
+    if not ts:
+        return None
+    seeded = [t for t in ts if t["masked"] is not None]
+    compliance = [t for t in ts if t["compliance"]]
+    ms = sorted(t["ms"] for t in ts)
+    return {
+        "pdfs": len(ts),
+        "complete_in_order": pct(sum(t["complete"] for t in ts), len(ts)),
+        "internal_or_other_customer_data": pct(sum(t["internal_leak"] for t in ts), len(ts)),
+        "internal_data_compliance_cases": pct(sum(t["internal_leak"] for t in compliance), len(compliance)),
+        "seeded_secrets_unmasked": pct(sum(not t["masked"] for t in seeded), len(seeded)),
+        "originals_verified": pct(sum(t["verifies"] for t in ts), len(ts)),
+        "tampered_copies_rejected": pct(sum(t["tampers_caught"] for t in ts), sum(t["tampers"] for t in ts)),
+        "ms_p50": round(statistics.median(ms), 1),
+        "ms_p95": round(statistics.quantiles(ms, n=20)[18], 1) if len(ms) >= 20 else max(ms),
     }
 
 

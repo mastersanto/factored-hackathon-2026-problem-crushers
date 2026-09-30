@@ -42,18 +42,30 @@ docker push "$IMAGE" >/dev/null
 echo "==> container apps environment $ENVNAME"
 az containerapp env show -n "$ENVNAME" -g "$RG" -o none 2>/dev/null || az containerapp env create -n "$ENVNAME" -g "$RG" -l "$LOCATION" -o none
 
+# Key for transcript check codes (specs/002): created once, random, never printed. It is kept across
+# deploys, so PDFs issued earlier keep verifying.
+new_transcript_key() { python3 -c 'import secrets; print(secrets.token_urlsafe(32))'; }
+ENV_VARS=("ANTHROPIC_API_KEY=secretref:anthropic-key" "TRANSCRIPT_HMAC_KEY=secretref:transcript-key" "MAX_LLM_USD=$MAX_LLM_USD")
+
 if az containerapp show -n "$APP" -g "$RG" -o none 2>/dev/null; then
   echo "==> update $APP"
   az containerapp secret set -n "$APP" -g "$RG" --secrets "anthropic-key=$KEY" -o none
-  az containerapp update -n "$APP" -g "$RG" --image "$IMAGE" \
-    --set-env-vars "ANTHROPIC_API_KEY=secretref:anthropic-key" "MAX_LLM_USD=$MAX_LLM_USD" -o none
+  if [ -z "$(az containerapp secret list -n "$APP" -g "$RG" --query "[?name=='transcript-key'].name" -o tsv)" ]; then
+    echo "==> create the transcript-key secret (once)"
+    TKEY=$(new_transcript_key)
+    az containerapp secret set -n "$APP" -g "$RG" --secrets "transcript-key=$TKEY" -o none
+    unset TKEY
+  fi
+  az containerapp update -n "$APP" -g "$RG" --image "$IMAGE" --set-env-vars "${ENV_VARS[@]}" -o none
 else
   echo "==> create $APP (scale to zero, one replica max)"
+  TKEY=$(new_transcript_key)
   az containerapp create -n "$APP" -g "$RG" --environment "$ENVNAME" --image "$IMAGE" \
     --registry-server "$ACR.azurecr.io" --registry-identity system \
     --target-port 8080 --ingress external --min-replicas 0 --max-replicas 1 --cpu 0.5 --memory 1.0Gi \
-    --secrets "anthropic-key=$KEY" \
-    --env-vars "ANTHROPIC_API_KEY=secretref:anthropic-key" "MAX_LLM_USD=$MAX_LLM_USD" -o none
+    --secrets "anthropic-key=$KEY" "transcript-key=$TKEY" \
+    --env-vars "${ENV_VARS[@]}" -o none
+  unset TKEY
 fi
 unset KEY
 
