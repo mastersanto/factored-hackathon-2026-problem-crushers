@@ -52,14 +52,32 @@ customer (web chat, ES/PT)
 | **Machine learning** | The fraud model with a time-based split, no leakage, and `fraud_score` as the baseline, tracked with MLflow. An intent classifier compared with a keyword baseline. |
 | **AI engineering** | The workflow engine, tools, guardrails (prompt injection, unauthorized access, expired session), handoff, deployment, and tracing. |
 
-## Open decisions **[team]**
+## Decisions (2026-09-30)
 
-1. **Team roster and roles.** Who covers data engineering, machine learning, the backend and agent, the frontend and deployment, and the slides and video?
-2. **LLM provider and budget.** The proposed default is Anthropic Claude: a fast, low-cost model (Claude Haiku 4.5) for understanding, and a stronger one (Claude Sonnet 5.5) for phrasing. Customer records must not go to any external model beyond the minimum fields for the case; the problem statement forbids credentials or private records in external model requests. The alternative is whatever credits the team already has.
-3. **Deployment target.** The organizers suggest Azure, AWS, Snowflake, or Databricks, but any host works. The proposal is one container (API plus UI) on a simple host with a small, private demo data subset loaded at startup, never committed to the public repository.
-4. **UI.** Streamlit is fastest (customer chat plus agent queue in one app). A React front end looks better but costs about a day.
-5. **Portuguese.** How many team-generated Portuguese cases, and who writes and labels them?
-6. **Synthetic fee schedule.** Build it (stretch) or keep fee complaints as intake and handoff only.
+1. **Roles**: the owner covers every role for now. The day plan's columns are workstreams, not people.
+2. **Language models** (the owner's choice):
+   - **Claude Haiku 4.5** (`claude-haiku-4-5`) understands requests: intent, which transaction, language.
+   - **Claude Sonnet 5.5** (`claude-sonnet-5-5`) writes answers from verified facts. Its server-side refusal fallback is on (`fallbacks: "default"`).
+   - Both are called through the official Anthropic Python SDK. Only the case's minimal fields are sent.
+3. **Local first.** Development runs entirely on the owner's machine:
+   - the API on `localhost` against DuckDB and Parquet built from the local mirror;
+   - the React dev server proxying to it.
+
+   Deployment is needed only for the submission link. It is planned for Friday 10-03, with a small private demo subset.
+4. **Frontend**: React with Vite and TypeScript, plus TanStack Query for the agent view and data fetching. Chat streams over server-sent events (SSE) through a small in-house hook. TanStack AI is **not** used for now (see below).
+
+### Why not TanStack AI (for now)
+
+- **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.
+- **Its strengths sit on the TypeScript server side**: provider adapters and the tool-call loop. Our loop is deterministic Python on the official Anthropic SDK, so we would use only its `useChat` client, tied to a protocol that still changes.
+- **Our answers are structured**: statements marked known or guessed, the "is this really my bank?" verdict card, and the handoff. A plain SSE hook with our own event types renders these directly.
+- **When to revisit**: if the chat UI grows beyond what a small hook handles.
+
+### Still open
+
+- Hosting target, decided by Friday.
+- How many Portuguese cases.
+- Whether to build the synthetic fee schedule.
 
 ## Day plan (proposal)
 
