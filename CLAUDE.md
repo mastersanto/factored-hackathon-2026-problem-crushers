@@ -10,6 +10,19 @@ The build for the Factored AI & Data Hackathon 2026, team **Problem Crushers**: 
 - **Deadline**: submissions close 2026-10-05, midnight Colombia time.
 - **Where the idea comes from**: the assessment lives in the ideation repository `~/personal/factored-idea` (`.specify/assessments/explain-this-charge/`). This repository starts from `docs/idea-brief.md` and `docs/build-plan.md`. If they conflict with that assessment, the assessment's latest dated section wins.
 
+## Spec Kit
+
+This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration).
+
+- **The constitution** (`.specify/memory/constitution.md`, v1.0.0) overrides other guidance. This file must stay consistent with it.
+- **Feature `specs/001-dispute-intake-assistant/`** holds:
+  - `spec.md`: what is built and what remains;
+  - `plan.md`: the architecture as built;
+  - `research.md`: decisions and alternatives;
+  - `data-model.md`, `contracts/http-api.md`, and `quickstart.md`;
+  - `tasks.md`: T001-T019 done, T020-T044 remaining until submission.
+- **Keeping tasks current**: check off a task in `tasks.md` when its work lands. Update the spec or plan when scope or architecture changes.
+
 ## Non-negotiables
 
 - **Never commit data or secrets.** The repository is public.
