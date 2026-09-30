@@ -17,7 +17,7 @@ make test    # workflow tests, one per required case (rules only, no LLM calls)
 make dev     # API on :8000 and web app on http://localhost:5173
 ```
 
-Without `ANTHROPIC_API_KEY` the assistant runs in rules mode, understanding with rules and answering from templates. With the key set, Claude Haiku 4.5 understands requests and Claude Sonnet 5.5 phrases answers, and every rewording is checked against the verified facts before it is shown.
+Settings live in `.env.local` (git-ignored; copy `.env.example`). Without `ANTHROPIC_API_KEY` the assistant runs in rules mode, understanding with rules and answering from templates. With the key set, Claude Haiku 4.5 understands requests and Claude Sonnet 5.5 phrases answers, and every rewording is checked against the verified facts before it is shown.
 
 ## How it works
 
