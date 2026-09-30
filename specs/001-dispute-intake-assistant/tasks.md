@@ -59,15 +59,20 @@ These are done as of 2026-09-30 and verified by `make test` and `make eval` (see
 
 ---
 
-## Phase 2: Deployment (blocks the submission link)
+## Phase 2: Deployment on Azure (blocks the submission link)
 
-**Purpose**: a public URL for the tool, with the data and key kept private (research §10).
+**Purpose**: a public URL for the tool, with the data and key kept private (research §10). The host is Azure Container Apps, the owner's choice, updated 2026-09-30 from Fly.io.
 
-- [ ] T025 Get the owner's hosting account (Fly.io proposed) and a signed-in CLI. The owner runs the sign-in step (`! fly auth login`). Record the decision in `docs/build-plan.md`.
-- [ ] T026 Create the app config: `internal_port 8080`, scale to zero when idle, one small machine, and region `bog` (or the nearest available), in `fly.toml`.
-- [ ] T027 Set the key through the host's secret store (`fly secrets set ANTHROPIC_API_KEY=…`, run by the owner), never in files. Document the step, without the value, in `README.md`.
-- [ ] T028 Deploy from the local working copy (`fly deploy`), so the git-ignored demo data goes only to the host's private registry. Then check `/api/health` returns `llm_enabled: true`.
-- [ ] T029 Run the quickstart demo script against the public URL and fix anything that differs from local. Record the URL in `README.md`.
+- [X] T025a Add abuse and cost guards before going public: a model-spend cap with a rules fallback, 40 turns per conversation, and 30 sessions per visitor per hour, in `backend/app/config.py`, `backend/app/llm/claude.py`, `backend/app/workflow/engine.py`, and `backend/app/api/main.py`. Test in `backend/tests/test_config.py`.
+- [ ] T025 The owner signs in to Azure (`! az login --use-device-code`) and picks the subscription. Install the Azure CLI for the user (`uv tool install azure-cli`; done).
+- [ ] T026 Write `scripts/deploy-azure.sh` (done), which creates:
+  - the resource group `rg-problem-crushers` in `eastus2`;
+  - a private registry (ACR Basic, admin user disabled, pulled through the app's managed identity);
+  - a Container Apps environment;
+  - the app, scaling to zero with at most one replica, 0.5 vCPU and 1 GiB, external ingress on port 8080.
+- [ ] T027 Build locally and push to the private registry (`make deploy-azure`), so the git-ignored demo data never passes through git. The key comes from `.env.local` into a Container Apps secret (`anthropic-key`) and is never printed or committed.
+- [ ] T028 Check that `/api/health` on the public URL returns `llm_enabled: true`.
+- [ ] T029 Run the quickstart demo script against the public URL, fix anything that differs from local, and record the URL in `README.md`.
 
 ---
 

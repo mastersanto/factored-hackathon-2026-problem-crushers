@@ -80,7 +80,19 @@ class Claude:
         self.usage_log.append({"model": model, "input_tokens": tin, "output_tokens": tout, "ok": ok,
                                "ms": round((time.time() - started) * 1000), "usd": (tin * pin + tout * pout) / 1e6})
 
+    def spent_usd(self) -> float:
+        return sum(u["usd"] for u in self.usage_log)
+
+    def over_budget(self) -> bool:
+        """Cost guard for a public link: past the cap, every call falls back to rules and templates."""
+        if self.spent_usd() >= settings.max_llm_usd:
+            log.warning("LLM budget of $%.2f reached; running in rules mode", settings.max_llm_usd)
+            return True
+        return False
+
     def understand(self, text: str, stage: str, merchants: list[str], today: datetime) -> Understanding | None:
+        if self.over_budget():
+            return None
         started = time.time()
         try:
             resp = self.client.messages.parse(
@@ -112,6 +124,8 @@ class Claude:
             return None
 
     def phrase(self, lang: str, statements) -> str | None:
+        if self.over_budget():
+            return None
         started = time.time()
         body = "\n".join(f"- ({st.basis}) {st.text}" for st in statements)
         try:

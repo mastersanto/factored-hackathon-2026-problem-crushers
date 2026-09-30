@@ -1,7 +1,7 @@
 # Local development. Requires the organizers' dataset mirror (see CLAUDE.md) for `make data`.
 PY := backend/.venv/bin/python
 
-.PHONY: setup data model eval eval-llm test api web dev demo-data docker docker-run
+.PHONY: setup data model eval eval-llm test api web dev demo-data docker docker-run deploy-azure
 
 setup:            ## create the Python venv and install both apps
 	python3 -m venv backend/.venv
@@ -44,4 +44,7 @@ docker: demo-data ## build the single container (API + built frontend + demo sub
 
 docker-run:       ## run the container on http://localhost:8080; the key comes from .env.local at runtime, not the image
 	docker run --rm -p 8080:8080 --env-file .env.local --name explain-this-charge explain-this-charge
+
+deploy-azure:     ## build locally, push to a private Azure registry, deploy to Container Apps (needs `az login`)
+	./scripts/deploy-azure.sh
 

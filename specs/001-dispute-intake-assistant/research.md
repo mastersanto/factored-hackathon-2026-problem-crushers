@@ -109,7 +109,14 @@ The decisions behind the architecture as built. Most were made and tested betwee
   - The Anthropic key must live in the host's secret store.
   - The tool does not need to run 24/7.
   - One person operates it.
-- **Decision**: a single container serves the API and the built frontend as static files.
+- **Decision (updated 2026-09-30, the owner's choice): Azure Container Apps**, one of the hosts the organizers suggest (Azure, AWS, Snowflake, Databricks). The design below is unchanged. Only the host moves from Fly.io to Azure:
+  - the image is built locally and pushed to a private Azure Container Registry;
+  - the app scales to zero with at most one replica;
+  - the key is stored as a Container Apps secret;
+  - `scripts/deploy-azure.sh` runs all of it.
+
+  Before the link is public, three abuse and cost guards cap exposure: a total model-spend cap (`MAX_LLM_USD`, default $5), after which the app runs in rules mode; 40 turns per conversation; and 30 new sessions per visitor per hour.
+- **Original decision**: a single container serves the API and the built frontend as static files.
   - The container holds a demo subset of the warehouse (`python -m app.data.build --customers 500`), built locally.
   - It is built and deployed from the local working copy, where the git-ignored data is available, with a CLI that uploads the build context privately. Fly.io (`fly deploy`) fits.
   - The image goes to the host's private registry. The key is set with the host's secret command.

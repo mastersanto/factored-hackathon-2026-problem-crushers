@@ -54,6 +54,10 @@ class Settings:
     session_ttl_seconds: int = int(os.environ.get("SESSION_TTL_SECONDS", "1800"))
     # How far back a customer's questioned charge may be (days before their latest transaction).
     lookback_days: int = int(os.environ.get("LOOKBACK_DAYS", "90"))
+    # Abuse and cost guards for a public demo link.
+    max_llm_usd: float = float(os.environ.get("MAX_LLM_USD", "5.0"))            # total model spend; then rules mode
+    session_max_turns: int = int(os.environ.get("SESSION_MAX_TURNS", "40"))     # per conversation
+    sessions_per_ip_hour: int = int(os.environ.get("SESSIONS_PER_IP_HOUR", "30"))
 
 
 settings = Settings()

@@ -10,7 +10,10 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
-from fastapi import FastAPI, HTTPException
+import time
+from collections import defaultdict, deque
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -87,8 +90,24 @@ def demo_customers():
     return out
 
 
+_session_log: dict[str, deque] = defaultdict(deque)
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")  # set by the hosting proxy
+    return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+
+
 @app.post("/api/session")
-def create_session(req: SessionRequest):
+def create_session(req: SessionRequest, request: Request):
+    # Abuse guard for a public demo link: a bounded number of new sessions per visitor per hour.
+    ip, now = _client_ip(request), time.time()
+    recent = _session_log[ip]
+    while recent and now - recent[0] > 3600:
+        recent.popleft()
+    if len(recent) >= settings.sessions_per_ip_hour:
+        raise HTTPException(429, "too many sessions; try again later")
+    recent.append(now)
     customer = banking.get_customer(store, req.customer_id)
     if not customer:
         raise HTTPException(404, "unknown customer")
@@ -121,7 +140,7 @@ def handoffs():
 @app.get("/api/metrics")
 def metrics():
     usage = llm.usage_log if llm else []
-    return {"llm_calls": len(usage), "usd": round(sum(u["usd"] for u in usage), 6),
+    return {"llm_calls": len(usage), "usd": round(sum(u["usd"] for u in usage), 6), "usd_cap": settings.max_llm_usd,
             "by_model": {m: sum(1 for u in usage if u["model"] == m) for m in {u["model"] for u in usage}}}
 
 

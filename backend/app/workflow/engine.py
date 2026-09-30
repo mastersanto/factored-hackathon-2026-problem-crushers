@@ -161,6 +161,9 @@ class Engine:
         if now - s.last_seen > settings.session_ttl_seconds:
             yield {"type": "error", "code": "session_expired", "text": M.t("session_expired", s.lang)}
             return
+        if s.turns >= settings.session_max_turns:
+            yield {"type": "error", "code": "turn_limit", "text": M.t("turn_limit", s.lang)}
+            return
         s.last_seen, s.turns = now, s.turns + 1
         try:
             yield from self._turn(s, text)
