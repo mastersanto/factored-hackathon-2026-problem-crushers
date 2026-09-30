@@ -104,14 +104,14 @@ These are done as of 2026-09-30 and verified by `make test` and `make eval` (see
 
 **Purpose**: report run-to-run variability, as the organizers require.
 
-- [ ] T036 [P] Run `python -m app.eval.run --mode llm --cases test-heldout --repeats 3` (about $1.70). Extend `backend/app/eval/report.py` to report the mean and range of the main measures across repeats, and regenerate `docs/evaluation.md`.
-- [ ] T037 [P] Add a short cost and latency note: tokens per turn by model, and what would change with prompt caching or at lower effort, to `docs/evaluation.md`.
+- [X] T036 [P] Run `python -m app.eval.run --mode llm --cases test-heldout --repeats 3` (about $1.70). Extend `backend/app/eval/report.py` to report the mean and range of the main measures across repeats, and regenerate `docs/evaluation.md`.
+- [X] T037 [P] Add a short cost and latency note: tokens per turn by model, and what would change with prompt caching or at lower effort, to `docs/evaluation.md`.
 
 ---
 
 ## Phase 6: Polish and submission
 
-- [ ] T038 [P] Write the limitations and future-work notes in `docs/limitations.md`, and link them from `README.md`. Cover:
+- [X] T038 [P] Write the limitations and future-work notes in `docs/limitations.md`, and link them from `README.md`. Cover:
   - synthetic data quirks: random fields, no MXN, 24 merchants;
   - team-generated conversations and Portuguese;
   - the fraud-score leakage caveat;
@@ -120,14 +120,14 @@ These are done as of 2026-09-30 and verified by `make test` and `make eval` (see
   - no real identity service;
   - demo-scale deployment;
   - what production would need (authentication, audit log retention, monitoring, fairness review, human-in-the-loop SLAs).
-- [ ] T039 [P] Polish `README.md`: a one-paragraph pitch, a screenshot, the architecture diagram (understand → decide → act → verify → escalate), results in three numbers, the deployed link, and how to reproduce.
-- [ ] T040 [P] Write the 4-6 slide deck with sources in `docs/slides/`:
+- [X] T039 [P] Polish `README.md`: a one-paragraph pitch, a screenshot, the architecture diagram (understand → decide → act → verify → escalate), results in three numbers, the deployed link, and how to reproduce.
+- [X] T040 [P] Write the 4-6 slide deck with sources in `docs/slides/`:
   1. the problem, from the data;
   2. the workflow and its guarantees;
   3. the architecture (where AI and where code, and why);
   4. results, rules versus Claude, and the fraud model;
   5. limitations and what production needs.
-- [ ] T041 [P] Write the three-minute video script and shot list in `docs/video-script.md`. It follows the quickstart demo (normal case, claim with handoff, fake contact, Portuguese, a safety refusal) and closes with the key architectural decisions.
+- [X] T041 [P] Write the three-minute video script and shot list in `docs/video-script.md`. It follows the quickstart demo (normal case, claim with handoff, fake contact, Portuguese, a safety refusal) and closes with the key architectural decisions.
 - [ ] T042 Record the video (the owner) and add its link to `README.md`.
 - [ ] T043 Run the final checks and record them in `docs/submission-checklist.md`:
   - `make test`;

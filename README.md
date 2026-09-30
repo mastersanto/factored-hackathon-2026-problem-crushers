@@ -1,56 +1,112 @@
-# Explain this charge
+# Explica este cargo
 
 **Team Problem Crushers**, Factored AI & Data Hackathon 2026.
 
-An AI customer-service system for one banking workflow: **transaction-dispute intake**. A customer who does not recognize a charge, or thinks it is wrong, gets it explained from the bank's own records. The system also checks whether a "message from the bank" really came from the bank. The customer can then confirm the charge or file a complete claim, and likely fraud reaches a person with a structured handoff. The system works in Spanish and Portuguese, for customers in Mexico, Colombia, and Argentina.
+**Transaction-dispute intake for LATAM Bank customers in Mexico, Colombia, and Argentina, in Spanish and Portuguese.**
 
-**Live demo**: https://explain-this-charge.nicerock-692cf9dc.eastus2.azurecontainerapps.io (Azure Container Apps; the first request after idle takes a few seconds to wake up). Pick a synthetic test customer and try the suggested messages; the **Especialista** tab shows the handoffs.
+In the bank's data, unrecognized and wrongful charges are **36.5% of all complaints**. They take a median of 15 days to resolve, and 1 in 5 misses its deadline. A customer who doesn't recognize a charge can:
 
-> Status: deployed (2026-09-30). Submissions close 2026-10-05, midnight Colombia time.
+- get it explained from the bank's own records;
+- check whether a "call from the bank" was real;
+- confirm the charge, or file a complete claim.
+
+Real cases reach a person as a structured case, with verified facts, the customer's rights, and the legal deadline, never a raw transcript.
+
+| | |
+|---|---|
+| **Live demo** | https://explain-this-charge.nicerock-692cf9dc.eastus2.azurecontainerapps.io. It runs on Azure Container Apps, so the first request after idle takes a few seconds. Pick a synthetic test customer, try the suggested messages, and open the **Especialista** tab to see the handoffs. |
+| **Slides** | [`docs/slides/slides.pdf`](docs/slides/slides.pdf) ([PPTX](docs/slides/slides.pptx), [source](docs/slides/slides.md)) |
+| **Video** | *link added after recording* |
+
+## Results on held-out cases
+
+180 cases per set, in Spanish and Portuguese, each tied to real records, with the expected outcome written before the run. The held-out set uses phrasings never used for tuning.
+
+| | Rules only | With Claude (3 runs) |
+|---|---:|---:|
+| Correct outcome | 85.0% | **95.6%** (95.0–96.1) |
+| Missed transfers (needed a person, got none) | 28.3% | **2.2%** (1.7–3.3) |
+| **Unsafe outcomes**: wrong or unsupported facts, promises, requests for secrets, other customers' data, internal data leaked | **0** | **0** |
+| Latency p95 per turn · cost per case | 0.12 s · $0 | 3.7 s · $0.0033 |
+
+The baseline, where every case goes to an agent, means a median 120 s wait plus 431 s of handling, and no automation.
+
+The **learned fraud-risk estimate** catches **281 of 494** test-period frauds at 100% precision, against **205** for the bank's fixed rule (+37%).
+
+Full report: [`docs/evaluation.md`](docs/evaluation.md). Model: [`docs/model-card.md`](docs/model-card.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    C[Customer<br/>ES / PT] --> U[Understand<br/>Claude Haiku 4.5<br/>or rules]
+    U --> D{Decide<br/>state machine}
+    D --> A[Act<br/>read-only tools:<br/>transactions, outbound record,<br/>card status, compliance holds,<br/>country rules, fraud risk]
+    A --> V[Verify<br/>sourced statements,<br/>faithfulness check,<br/>Claude Sonnet 5.5 rewording]
+    V --> C
+    D --> E[Escalate<br/>structured handoff]
+    E --> S[Specialist queue]
+```
+
+- **Code decides; models only interpret and reword.**
+  - A deterministic state machine owns every step, tool call, rule, and permission.
+  - Claude Haiku 4.5 turns the customer's message into a validated structure.
+  - Claude Sonnet 5.5 rewords only facts the tools verified, and the reply is shown only if it passes a **faithfulness check**: the same numbers, no new ones, and no promises.
+- **Every sentence carries its source**: *verificado* (a record ID), *estimación* (an estimate), or *política* (a rule ID).
+- **Guarantees in code, not prompts**:
+  - tools read only the session's customer;
+  - a **close guard** means a model's misreading can never close a fraud claim;
+  - charges under compliance review are never explained;
+  - the customer's device receives only a case number, never internal assessments.
+- **Rules mode**: without the model, or on a failure, refusal, or spent budget, rules and templates keep the same guarantees.
+- **Data**: a Parquet warehouse in DuckDB, built from the organizers' dataset with data minimization and 11 quality checks.
+- **Learned component**: an isotonic calibration of the bank's detector score, compared against its fixed threshold on a time split and tracked in MLflow.
+- **Deployment**: one container (FastAPI serving the React app) on Azure Container Apps, with a private registry, the key as a secret, scale to zero, and abuse and cost guards.
+
+More detail: the spec and plan in [`specs/001-dispute-intake-assistant/`](specs/001-dispute-intake-assistant/) (GitHub Spec Kit), and the [constitution](.specify/memory/constitution.md).
 
 ## Run it locally
 
 Needs Python 3.10+, Node 20+, and the organizers' dataset mirror at `~/factored-hackathon-2026-scratch/data` (or set `DATA_MIRROR`).
 
 ```bash
-make setup   # Python venv + frontend packages
-make data    # build the Parquet warehouse and data-quality report (about 20 s)
-make model   # train the fraud risk estimate (MLflow), about 10 s
-make eval    # build held-out case sets, evaluate in rules mode, write docs/evaluation.md
-make test    # workflow tests, one per required case (rules only, no LLM calls)
+make setup   # Python venv and frontend packages
+make data    # Parquet warehouse and data-quality report (about 20 s)
+make model   # fraud-risk candidates, time split, MLflow (about 10 s)
+make test    # workflow, guard, and security tests (rules only, no LLM calls)
+make eval    # held-out case sets in rules mode, then docs/evaluation.md
 make dev     # API on :8000 and web app on http://localhost:5173
 ```
 
-The demo also runs as a single container: API, built frontend, a 500-customer demo subset, and the fraud model.
+Settings live in `.env.local`, which is git-ignored: copy it from `.env.example`. Without `ANTHROPIC_API_KEY`, everything runs in rules mode. `make eval-llm` evaluates with Claude, at about $0.60 per set.
+
+As a single container, and on Azure:
 
 ```bash
-make docker       # builds the demo subset, then the image (no secrets or full data inside)
-make docker-run   # http://localhost:8080; the key is read from .env.local at runtime
-make deploy-azure # Azure Container Apps: private registry, key as a Container Apps secret (needs az login)
+make docker        # 500-customer demo subset, then the image (no secrets or full data inside)
+make docker-run    # http://localhost:8080; the key is read from .env.local at runtime
+make deploy-azure  # private registry, key as a Container Apps secret (needs `az login`)
 ```
 
-Settings live in `.env.local` (git-ignored; copy `.env.example`). Without `ANTHROPIC_API_KEY` the assistant runs in rules mode, understanding with rules and answering from templates. With the key set, Claude Haiku 4.5 understands requests and Claude Sonnet 5.5 phrases answers, and every rewording is checked against the verified facts before it is shown.
+A step-by-step validation script is in [`quickstart.md`](specs/001-dispute-intake-assistant/quickstart.md).
 
-## How it works
+## Data and provenance
 
-The workflow runs `understand -> decide -> act -> verify -> escalate` as an explicit state machine (`backend/app/workflow/engine.py`).
+- **The organizers' synthetic LATAM Bank dataset** (13 tables, June 2023 to June 2026). **It is not in this repository**: only aggregates appear in the documentation.
+- **Team-generated and labelled**: evaluation conversations, all Portuguese cases, and the compliance-review list (a synthetic 0.05% sample, since the data flags no charge as under review).
+- **Legal rules** (Mexico, Colombia, Argentina) come from desk research. Validation by a financial specialist is pending.
 
-- **Understand.** Models are used here and when rewording, and nowhere else.
-- **Decide and act.** Transaction lookups, the outbound-record check, card status, and country rules are deterministic, read-only tools (`backend/app/tools/banking.py`, `backend/app/policy/rules.py`). They take the session's customer, never an ID typed in the chat.
-- **Verify.** Every statement to the customer is tagged *known* (with its source record), *guessed*, or *rule*.
-- **Escalate.** Cases that need a person become structured handoffs in the specialist view.
+## Limitations and future work
+
+See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what the evaluation does and doesn't prove, and what production would need: identity, retention, monitoring, capacity, and compliance review.
 
 ## Documents
 
-- [`docs/idea-brief.md`](docs/idea-brief.md): the problem, the workflow, the required cases, the metrics, and the data limits.
-- [`docs/evaluation.md`](docs/evaluation.md): the held-out evaluation, rules against Claude, with the organizers' outcome measures.
-- [`docs/model-card.md`](docs/model-card.md): the fraud risk estimate, the learned component, against the existing detector.
-- [`docs/build-plan.md`](docs/build-plan.md): architecture, open team decisions, the day plan, the test cases, and the security rules.
-
-## Data
-
-The organizers' synthetic LATAM Bank dataset (13 tables, June 2023 to June 2026). **It is not in this repository and must never be committed.** Test conversations, Portuguese cases, and any fee schedule are team-generated or synthetic, and are labelled as such.
-
-## Limitations, caveats, and future work
-
-To be written as the build progresses. The data's known limits are listed in [`docs/idea-brief.md`](docs/idea-brief.md#what-the-data-cannot-do-report-these-honestly).
+| Document | What's in it |
+|---|---|
+| [`docs/evaluation.md`](docs/evaluation.md) | Held-out results, rules against Claude, variability across runs, cost and latency |
+| [`docs/model-card.md`](docs/model-card.md) | The fraud-risk estimate: data, split, candidates, results, and caveats |
+| [`docs/limitations.md`](docs/limitations.md) | Limits and the route to production |
+| [`docs/idea-brief.md`](docs/idea-brief.md) | Why this workflow, from the assessment in the team's ideation repository |
+| [`docs/video-script.md`](docs/video-script.md) | The demo video's script |
+| [`specs/001-dispute-intake-assistant/`](specs/001-dispute-intake-assistant/) | Spec, plan, research, data model, API contract, quickstart, tasks |

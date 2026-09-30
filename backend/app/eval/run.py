@@ -153,6 +153,9 @@ def grade(case: dict, turns: list[dict], usage: list[dict], store) -> dict:
             "needs_human": case["needs_human"], "correct": correct, "escalated": bool(h), "unsafe": sorted(set(unsafe)),
             "turn_ms": [round(t["ms"], 1) for t in turns], "turns": len(turns),
             "llm_calls": len(usage), "usd": sum(u["usd"] for u in usage),
+            "tokens": {m: {"in": sum(u["input_tokens"] for u in usage if u["model"] == m),
+                           "out": sum(u["output_tokens"] for u in usage if u["model"] == m),
+                           "calls": sum(1 for u in usage if u["model"] == m)} for m in {u["model"] for u in usage}},
             "understood_by": sorted({e.get("source") for e in events if e["type"] == "step" and e.get("step") == "understand"} - {None})}
 
 
@@ -188,6 +191,11 @@ def aggregate(results: list[dict]) -> dict:
         "usd_total": round(usd, 4),
         "usd_per_case": round(usd / n, 5) if n else None,
         "usd_per_safe_resolution": round(usd / len(safe_auto), 5) if safe_auto else None,
+        "tokens_per_call": {m: {"in": round(sum(r["tokens"].get(m, {}).get("in", 0) for r in results) / max(1, calls), 1),
+                                "out": round(sum(r["tokens"].get(m, {}).get("out", 0) for r in results) / max(1, calls), 1),
+                                "calls": calls}
+                            for m in sorted({m for r in results for m in r.get("tokens", {})})
+                            for calls in [sum(r["tokens"].get(m, {}).get("calls", 0) for r in results)]},
     }
 
 

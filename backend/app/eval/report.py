@@ -28,6 +28,18 @@ ROWS = [("correct_outcome", "Correct outcome"),
         ("usd_per_safe_resolution", "LLM cost per safe resolution (USD)")]
 
 
+def _num(v):
+    """'95.2% (160/168)' -> 95.2; numbers pass through; None stays None."""
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).split("%")[0])
+    except ValueError:
+        return None
+
+
 def load(name: str, mode: str):
     p = EVAL_DIR / f"results-{name}-{mode}.json"
     return json.loads(p.read_text()) if p.exists() else None
@@ -80,6 +92,25 @@ def main() -> None:
         for key, label in ROWS:
             lines.append(f"| {label} | " + " | ".join(str(res[m]["repeats"][0]["aggregate"][key]) for m, _ in MODES if res[m]) + " |")
         for m, label in MODES:
+            reps = res[m]["repeats"] if res[m] else []
+            if len(reps) > 1:
+                lines += ["", f"**Run-to-run variability ({label}, {len(reps)} runs on the same cases)**", "",
+                          "| Measure | Mean | Min | Max |", "|---|---:|---:|---:|"]
+                for key, lab in ROWS:
+                    vals = [_num(r["aggregate"][key]) for r in reps]
+                    if all(v is not None for v in vals):
+                        lines.append(f"| {lab} | {sum(vals) / len(vals):.1f} | {min(vals):.1f} | {max(vals):.1f} |" if "usd" not in key
+                                     else f"| {lab} | {sum(vals) / len(vals):.5f} | {min(vals):.5f} | {max(vals):.5f} |")
+                lines.append("")
+                lines.append("The tables above show the first run; percentages here are the rate values.")
+            if res[m] and res[m]["repeats"][0]["aggregate"].get("tokens_per_call"):
+                lines += ["", f"**Cost and latency detail ({label})**", "", "| Model | Calls | Input tokens per call | Output tokens per call |", "|---|---:|---:|---:|"]
+                for model, tk in res[m]["repeats"][0]["aggregate"]["tokens_per_call"].items():
+                    lines.append(f"| {model} | {tk['calls']} | {tk['in']} | {tk['out']} |")
+                lines += ["",
+                          "- **Understanding (Haiku 4.5)** is called once per customer turn, and sends a fixed instruction plus the list of the dataset's 24 merchants. That stable prefix could be prompt-cached, which would cut input cost for that call by up to about 90% on cache hits.",
+                          "- **Phrasing (Sonnet 5.5)** already runs at low effort. It could be skipped for fixed policy messages, which already skip it, and for very short replies.",
+                          "- **Latency** is dominated by the two model calls in series. Running phrasing concurrently with the next tool lookup, or streaming the reworded text, would lower the perceived wait. Rules mode answers in under 150 ms at p95."]
             if res[m] and res[m]["repeats"][0]["aggregate"]["unsafe_by_type"]:
                 lines.append(f"\nUnsafe outcomes by type ({label}): " + ", ".join(f"{k} {v}" for k, v in res[m]["repeats"][0]["aggregate"]["unsafe_by_type"].items()))
         lines += ["", "**By category, correct outcome**", "", "| Category | " + " | ".join(label.split(" (")[0] for m, label in MODES if res[m]) + " |",
@@ -101,17 +132,21 @@ def main() -> None:
     first = {n: EVAL_DIR / "run1" / f"results-{n}-llm.json" for n in ("test-seen", "test-heldout")}
     lines += ["## What the evaluation changed", "",
               "The harness found real defects. Each fix is general, not tied to one case. After the fixes, the test sets were rebuilt with new seeds, or the model runs were repeated, before the numbers above were recorded.", "",
-              "1. **Rules on the first dev run (79% correct, 54% missed transfers).**",
+              "- **Rules on the first dev run (79% correct, 54% missed transfers).**",
               "   - Month-name dates (\"11 de junio\") were not parsed, and the day was read as the amount.",
               "   - A plain \"no\" at the confirmation step did not file the claim.",
               "   - Vague complaints about a card were treated as out of scope.",
               "   - The data-outage fallback created a handoff without announcing it.",
               "",
-              "   All four were fixed in the rules and the engine. The same rules then scored 100% on a fresh test set with familiar phrasings, and 79% on held-out phrasings: the gap is wording the rules have never seen."]
+              "   All four were fixed in the rules and the engine. The same rules then scored 100% on a fresh test set with familiar phrasings, and 79% on held-out phrasings: the gap is wording the rules have never seen.",
+              "",
+              "- **Portuguese detection.** A Portuguese message without the usual marker words was answered in Spanish; more markers were added. Rules mode on held-out phrasings rose to 85%.",
+              "",
+              "- **Customer-stream privacy.** The chat stream sent the full internal handoff and internal trace (case type, priority, risk estimate) to the customer's browser. It now carries only a case number, and the grader counts any leak as unsafe. This was found while adding compliance holds, which the evaluation now includes as a 15th category (180 cases per set)."]
     if all(f.exists() for f in first.values()):
         r1 = {n: json.loads(f.read_text())["repeats"][0]["aggregate"] for n, f in first.items()}
         lines += ["",
-                  "2. **First Claude run.**",
+                  "- **First Claude run** (168-case sets, before compliance holds were added).",
                   f"   - On the familiar-phrasings set, {r1['test-seen']['cases_with_unsafe_outcome']} of cases had an unsafe outcome ({', '.join(f'{k} {v}' for k, v in r1['test-seen']['unsafe_by_type'].items()) or 'none'}).",
                   "   - Haiku 4.5 sometimes read \"no, no lo reconozco\" as \"it was mine\", and the possible fraud claim was closed without a person.",
                   "   - **Fix (a deterministic guard in the engine):** at the confirmation step, a negation detected by the rules always files the claim. Closing a case as \"mine\" needs the rules and the model to agree; otherwise the assistant asks again.",

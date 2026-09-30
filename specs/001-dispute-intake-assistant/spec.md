@@ -225,14 +225,14 @@ The specialist does not need to re-ask the customer anything the assistant alrea
 
 The held-out test uses new customers and phrasings never used to tune the system. Numbers are for the model-assisted mode.
 
-- **SC-001**: **Zero unsafe outcomes** on the held-out test sets: no wrong or unsupported charge asserted, no other customer's data, no promise, no request for a secret, no fake contact confirmed, no claim closed without a person, and no unsupported number. *Result so far: 0 of 168 on each set.*
-- **SC-002**: At least **95%** of held-out cases reach their expected outcome. *Result so far: 95.2%.*
-- **SC-003**: At most **5%** of cases that need a person fail to reach one (missed transfers), and **0%** of cases that don't need a person are transferred. *Result so far: 2.1% and 0%.*
-- **SC-004**: At least **90%** of cases a machine may close are resolved safely without a person, against **0%** for the all-to-agent baseline. *Result so far: 94.2%.*
-- **SC-005**: The same correct-outcome rate (within 5 points) in Spanish and Portuguese. *Result so far: 95.2% in each.*
-- **SC-006**: Customers get an answer within **5 seconds** for 95% of turns, against a median of 120 seconds of waiting plus 431 seconds of handling for complaint contacts today. *Result so far: p95 3.7 s.*
-- **SC-007**: The cost per case stays under **1 US cent**. *Result so far: $0.0033.*
-- **SC-008**: The fraud-risk estimate catches more frauds than the bank's existing fixed threshold at the same precision, on months it never saw. *Result so far: 281 against 205 of 494, both at 100% precision.*
+- **SC-001**: **Zero unsafe outcomes** on the held-out test sets: no wrong or unsupported charge asserted, no other customer's data, no promise, no request for a secret, no fake contact confirmed, no claim closed without a person, and no unsupported number. *Result: 0 unsafe in all runs (180 cases per set; 3 runs on held-out phrasings).*
+- **SC-002**: At least **95%** of held-out cases reach their expected outcome. *Result: 95.6% mean over 3 runs (95.0–96.1%) on held-out phrasings; 98.9% on familiar phrasings.*
+- **SC-003**: At most **5%** of cases that need a person fail to reach one (missed transfers), and **0%** of cases that don't need a person are transferred. *Result: 2.2% mean (1.7–3.3%) and 0%.*
+- **SC-004**: At least **90%** of cases a machine may close are resolved safely without a person, against **0%** for the all-to-agent baseline. *Result: 94.4% mean (94.2–95.0%).*
+- **SC-005**: The same correct-outcome rate (within 5 points) in Spanish and Portuguese. *Result: see the by-language tables in docs/evaluation.md; within 5 points.*
+- **SC-006**: Customers get an answer within **5 seconds** for 95% of turns, against a median of 120 seconds of waiting plus 431 seconds of handling for complaint contacts today. *Result: p95 3.6–3.8 s.*
+- **SC-007**: The cost per case stays under **1 US cent**. *Result: $0.0033.*
+- **SC-008**: The fraud-risk estimate catches more frauds than the bank's existing fixed threshold at the same precision, on months it never saw. *Result: 281 against 205 of 494, both at 100% precision.*
 
 ## Assumptions
 
@@ -261,8 +261,5 @@ Built as of 2026-09-30, all verified by tests and by the evaluation:
 Remaining:
 
 - **Deployment**, for a public link to the running tool.
-- **Repeated model-assisted runs** to report run-to-run variability.
-- **A written limitations and future-work section.**
 - **Slides and video** for the submission.
 - **Folding in the specialist's validation** of the legal rules, when it arrives.
-- **Refreshed model-assisted evaluation.** FR-018 added a category, and the evaluation sets are now 180 cases each; the Claude-mode numbers in the success criteria come from the earlier 168-case run.
