@@ -4,7 +4,9 @@
 
 An AI customer-service system for one banking workflow: **transaction-dispute intake**. A customer who does not recognize a charge, or thinks it is wrong, gets it explained from the bank's own records. The system also checks whether a "message from the bank" really came from the bank. The customer can then confirm the charge or file a complete claim, and likely fraud reaches a person with a structured handoff. The system works in Spanish and Portuguese, for customers in Mexico, Colombia, and Argentina.
 
-> Status: build starting (2026-09-30). Submissions close 2026-10-05, midnight Colombia time.
+**Live demo**: https://explain-this-charge.nicerock-692cf9dc.eastus2.azurecontainerapps.io (Azure Container Apps; the first request after idle takes a few seconds to wake up). Pick a synthetic test customer and try the suggested messages; the **Especialista** tab shows the handoffs.
+
+> Status: deployed (2026-09-30). Submissions close 2026-10-05, midnight Colombia time.
 
 ## Run it locally
 
@@ -24,6 +26,7 @@ The demo also runs as a single container: API, built frontend, a 500-customer de
 ```bash
 make docker       # builds the demo subset, then the image (no secrets or full data inside)
 make docker-run   # http://localhost:8080; the key is read from .env.local at runtime
+make deploy-azure # Azure Container Apps: private registry, key as a Container Apps secret (needs az login)
 ```
 
 Settings live in `.env.local` (git-ignored; copy `.env.example`). Without `ANTHROPIC_API_KEY` the assistant runs in rules mode, understanding with rules and answering from templates. With the key set, Claude Haiku 4.5 understands requests and Claude Sonnet 5.5 phrases answers, and every rewording is checked against the verified facts before it is shown.
