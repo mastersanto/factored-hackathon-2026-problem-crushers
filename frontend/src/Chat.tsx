@@ -5,7 +5,7 @@ import { CaseCard } from './components/CaseCard'
 import { Statements } from './components/Statements'
 import { StepsPanel } from './components/StepsPanel'
 import { VerdictCard } from './components/VerdictCard'
-import { BOTH_LANGUAGES, TEXT } from './i18n'
+import { TEXT } from './i18n'
 import { Icon } from './icons'
 import { formatTime, stepProgress, useChat, type Turn } from './useChat'
 
@@ -15,14 +15,16 @@ interface Props {
   firstName: string
   country: string
   suggestions: string[]
+  /** The app language: the chat's texts use it until the first reply (specs/004, FR-408). */
+  initialLang: Lang
   onChangeCustomer: () => void
   onLang: (lang: Lang) => void
 }
 
 /** The customer's chat (specs/003 design, "Screen Chat"). Every fixed text follows the language of the latest
  *  assistant message (FR-201); what the assistant says is shown exactly as the server streamed it. */
-export function Chat({ sessionId, conversationRef, firstName, country, suggestions, onChangeCustomer, onLang }: Props) {
-  const { turns, busy, replies, lang, completed, send } = useChat(sessionId)
+export function Chat({ sessionId, conversationRef, firstName, country, suggestions, initialLang, onChangeCustomer, onLang }: Props) {
+  const { turns, busy, replies, lang, completed, send } = useChat(sessionId, initialLang)
   const t = TEXT[lang]
   const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
   const [pdfExpired, setPdfExpired] = useState(false)
@@ -83,7 +85,7 @@ export function Chat({ sessionId, conversationRef, firstName, country, suggestio
       <div className="chat-grid">
         <section className="panel conversation" aria-label={t.aria.messages}>
           <div className="log" role="log" aria-live="polite" aria-label={t.aria.messages}>
-            <div className="intro"><p>{t.intro(firstName)}</p><p>{BOTH_LANGUAGES}</p></div>
+            <div className="intro"><p>{t.intro(firstName)}</p><p>{t.languages}</p></div>
             {turns.map((turn, i) => (
               <TurnView key={i} turn={turn} next={turns[i + 1]} country={country} busy={busy} onPick={(v) => submit(v)} />
             ))}

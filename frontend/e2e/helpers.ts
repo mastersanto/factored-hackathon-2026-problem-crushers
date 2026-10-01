@@ -1,4 +1,5 @@
 import { expect, type Page, type TestInfo } from '@playwright/test'
+import type { Lang, ScenarioId } from '../src/api'
 import { TEXT, type TextSet } from '../src/i18n'
 
 // Helpers for the UI acceptance checks (specs/003, R9). They drive the real app in rules mode, so every run is
@@ -6,7 +7,8 @@ import { TEXT, type TextSet } from '../src/i18n'
 // scenario label the demo API gives them, and messages are built at run time from that customer's own hints,
 // the same way the app builds its example messages.
 
-export interface DemoCustomer { first_name: string; label: string; hint: Record<string, string | number | null> }
+/** A demo customer as the sign-in card shows it: `label` is the card's text in the page's language (specs/004). */
+export interface DemoCustomer { first_name: string; label: string; scenario: ScenarioId; hint: Record<string, string | number | null> }
 
 /** Demo scenarios, by the label the API gives each customer. */
 export const SCENARIO = {
@@ -15,15 +17,17 @@ export const SCENARIO = {
   other: /card purchase/, // any customer, for scam and refusal messages
 }
 
-export async function customer(page: Page, label: RegExp): Promise<DemoCustomer> {
+/** Finds the customer by the API's English scenario label, and returns it with `label` set to the text its
+ *  card shows in `lang` (the projects run in es-MX, so Spanish by default). */
+export async function customer(page: Page, label: RegExp, lang: Lang = 'es'): Promise<DemoCustomer> {
   const all = await (await page.request.get('/api/demo/customers')).json() as DemoCustomer[]
   const c = all.find((x) => label.test(x.label))
   if (!c) throw new Error(`no demo customer labelled ${label}`)
-  return c
+  return { ...c, label: TEXT[lang].scenario[c.scenario] }
 }
 
-export async function signIn(page: Page, label: RegExp): Promise<DemoCustomer> {
-  const c = await customer(page, label)
+export async function signIn(page: Page, label: RegExp, lang: Lang = 'es'): Promise<DemoCustomer> {
+  const c = await customer(page, label, lang)
   await page.goto('/')
   await page.getByRole('button', { name: c.label }).click()
   await expect(page.locator('#composer-input')).toBeVisible()

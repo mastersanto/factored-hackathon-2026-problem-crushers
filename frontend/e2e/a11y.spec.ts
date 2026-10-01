@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+import { TEXT } from '../src/i18n'
 import { chargeMessage, claimPath, contactPathPt, customer, OTHER_CUSTOMER, reply, SCAM, SCENARIO, send, signIn } from './helpers'
 
 // US4: keyboard, screen readers, contrast (FR-212 to FR-217; SC-204, SC-205).
@@ -83,4 +84,23 @@ test('scrolling respects reduced motion', async ({ page }) => {
   const behaviors = await page.evaluate(() => (window as unknown as { __scrolls: { behavior?: string }[] }).__scrolls.map((a) => a?.behavior))
   expect(behaviors.length).toBeGreaterThan(0)
   expect(behaviors.every((b) => b === 'auto')).toBe(true)
+})
+
+// specs/004 US1: the same checks in an English browser (SC-408).
+test.describe('in English', () => {
+  test.use({ locale: 'en-US' })
+
+  test('sign-in has no accessibility violations', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('list', { name: TEXT.en.signIn.list })).toBeVisible()
+    await axe(page)
+  })
+
+  test('the specialist view has no accessibility violations', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: TEXT.en.app.specialistTab }).click()
+    await expect(page.getByRole('heading', { name: TEXT.en.specialist.title })).toBeVisible()
+    await expect(page.locator('article.case, .panel.empty').first()).toBeVisible()
+    await axe(page)
+  })
 })

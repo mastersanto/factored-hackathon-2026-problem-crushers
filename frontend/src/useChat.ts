@@ -11,14 +11,14 @@ export const STEP_ORDER = ['understand', 'decide', 'act', 'verify', 'escalate'] 
 
 /** Conversation state for one session. Each assistant turn keeps every streamed event, so the UI
  *  can show the verified statements, candidates, verdicts, handoffs, and the workflow trace. */
-export function useChat(sessionId: string | null) {
+export function useChat(sessionId: string | null, initialLang: Lang = 'es') {
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState('start')
   // Quick replies for the assistant's latest question; null means "use the starter examples".
   const [replies, setReplies] = useState<string[] | null>(null)
   // Language of the latest reply: picks the chat's fixed texts (specs/003, FR-201) and the PDF's (specs/002, FR-109).
-  const [lang, setLang] = useState<Lang>('es')
+  const [lang, setLang] = useState<Lang>(initialLang)
   // At least one turn has finished: the transcript has something to export.
   const [completed, setCompleted] = useState(false)
 

@@ -93,12 +93,12 @@ A task is checked off only when its gates pass.
 
 **Independent Test**: open the app with `en-US`, `es-MX`, `pt-BR`, `fr-FR`, and `fr-FR,es`, and check that every fixed text on sign-in, the header, and the specialist view is in English, Spanish, Portuguese, English, and Spanish respectively (SC-401, SC-402).
 
-- [ ] T012 [P] [US1] Add a stable `scenario` id to each item of `GET /api/demo/customers` in `backend/app/api/main.py` (data-model: Demo customer): `fraud_flagged`, `pending`, `mx_debit_48h`, `co_purchase`, `ar_purchase`, `compliance`, `bank_message`. Keep `label` unchanged. Add a test in `backend/tests/test_language.py` that every item has one of these ids.
-- [ ] T013 [P] [US1] Create `frontend/src/language.ts` with:
+- [X] T012 [P] [US1] Add a stable `scenario` id to each item of `GET /api/demo/customers` in `backend/app/api/main.py` (data-model: Demo customer): `fraud_flagged`, `pending`, `mx_debit_48h`, `co_purchase`, `ar_purchase`, `compliance`, `bank_message`. Keep `label` unchanged. Add a test in `backend/tests/test_language.py` that every item has one of these ids.
+- [X] T013 [P] [US1] Create `frontend/src/language.ts` with:
   - `pickLanguage(prefs: readonly string[], stored: string | null): Lang`: "the stored choice, else the first preference whose primary subtag is en, es, or pt, else `en`", where the primary subtag is lower-cased and taken before the first `-`;
   - `readStoredLanguage()` and `storeLanguage(lang)`: use `localStorage["app-language"]`, wrapped in try/catch ("reading or writing it never throws");
   - `LanguageContext` and `useLanguage()`, giving `{ lang, setLang }`.
-- [ ] T014 [US1] In `frontend/src/api.ts`, set `Lang = 'en' | 'es' | 'pt'` and add `scenario` to `DemoCustomer`. In `frontend/src/i18n.ts`:
+- [X] T014 [US1] In `frontend/src/api.ts`, set `Lang = 'en' | 'es' | 'pt'` and add `scenario` to `DemoCustomer`. In `frontend/src/i18n.ts`:
   - extend `TextSet` with:
     - `app`: view tabs, aria name of the nav, the health line (data date, "Claude active", "Rules mode (no AI)", "Connecting…"), and the footer;
     - `signIn`: heading, lead, synthetic notice, loading, connection error, retry, list aria name, start, opening, the session-limit error, the failed-start error;
@@ -106,30 +106,30 @@ A task is checked off only when its gates pass.
     - `specialist`: every text in `AgentQueue.tsx`, including the priority labels, case types, verification results, field names, and the empty and error states;
   - fill `es` by moving the existing Spanish strings verbatim, and `pt` with Brazilian Portuguese in the same register as the chat's `pt` set;
   - update the header comment: specs/003 FR-203 is replaced by specs/004 FR-408.
-- [ ] T015 [US1] Add the complete `en` `TextSet` to `frontend/src/i18n.ts`, including every chat text from specs/003.
+- [X] T015 [US1] Add the complete `en` `TextSet` to `frontend/src/i18n.ts`, including every chat text from specs/003.
   - The `intro` and `BOTH_LANGUAGES` lines must say the assistant answers in **Spanish or Portuguese**, because English replies arrive only with US2 (T027 changes them).
   - The type `Record<Lang, TextSet>` must compile.
-- [ ] T016 [US1] In `frontend/src/main.tsx`, before `createRoot`:
+- [X] T016 [US1] In `frontend/src/main.tsx`, before `createRoot`:
   - compute `const lang = pickLanguage(navigator.languages ?? [], readStoredLanguage())`;
   - set `document.documentElement.lang = lang`;
   - render `<App />` inside a provider initialised with it (FR-404: no flash).
-- [ ] T017 [US1] In `frontend/src/App.tsx`, take every fixed text from `TEXT[appLang]`: header, nav, health line, security strip, footer, `DemoLogin` (heading, lead, notice, loading, error, retry, start, opening, both sign-in errors), and scenario labels via `TEXT[appLang].scenario[c.scenario]`.
+- [X] T017 [US1] In `frontend/src/App.tsx`, take every fixed text from `TEXT[appLang]`: header, nav, health line, security strip, footer, `DemoLogin` (heading, lead, notice, loading, error, retry, start, opening, both sign-in errors), and scenario labels via `TEXT[appLang].scenario[c.scenario]`.
   - Until US3 lands, the chat keeps specs/003's rule: its fixed texts follow the latest reply's language, and before the first reply they use the app language.
   - `<html lang>` follows the language of the visible fixed texts.
-- [ ] T018 [P] [US1] In `frontend/src/AgentQueue.tsx`, take every fixed text from `TEXT[appLang].specialist`. Customer words, facts, and IDs are shown as recorded.
-- [ ] T019 [US1] In `frontend/e2e/helpers.ts`:
+- [X] T018 [P] [US1] In `frontend/src/AgentQueue.tsx`, take every fixed text from `TEXT[appLang].specialist`. Customer words, facts, and IDs are shown as recorded.
+- [X] T019 [US1] In `frontend/e2e/helpers.ts`:
   - `customer()` finds the item by `scenario` (map `SCENARIO` to ids);
   - `signIn()` clicks the card by `TEXT[lang].scenario[id]` for the page's language (default `es`);
   - `DemoCustomer` gains `scenario`.
 
   Every existing spec must pass unchanged in behaviour.
-- [ ] T020 [P] [US1] Add `frontend/e2e/detect.spec.ts`:
+- [X] T020 [P] [US1] Add `frontend/e2e/detect.spec.ts`:
   - `en-US`, `es-MX`, `pt-BR`, `fr-FR` give EN, ES, PT, EN;
   - `['fr-FR', 'es']` gives ES;
   - an empty list gives EN (set through `page.addInitScript` overriding `navigator.languages`);
   - a stored `app-language = 'pt'` beats an `en-US` browser;
   - for each case, `<html lang>` and the sign-in heading are already right when the page is first visible (read them in `addInitScript` on `DOMContentLoaded`), with no switch afterwards.
-- [ ] T021 [US1] Extend `frontend/e2e/a11y.spec.ts` and `frontend/e2e/phone.spec.ts` with English runs (`test.use({ locale: 'en-US' })`) of sign-in and the specialist view: 0 axe violations in both themes, 0 sideways scroll at 375 px, and tap targets of at least 44 px.
+- [X] T021 [US1] Extend `frontend/e2e/a11y.spec.ts` and `frontend/e2e/phone.spec.ts` with English runs (`test.use({ locale: 'en-US' })`) of sign-in and the specialist view: 0 axe violations in both themes, 0 sideways scroll at 375 px, and tap targets of at least 44 px.
 
 **Checkpoint**: increment 1, part 1. Frontend and one additive API field. It can ship on its own.
 

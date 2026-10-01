@@ -97,3 +97,11 @@ def test_stream_has_no_recipes():
                     assert set(st) == {"text", "basis", "source"}
                 for item in ev.get("items", []):
                     assert "raw" not in item
+
+
+# ---- T012: demo scenarios carry a stable id -------------------------------------------------------------
+def test_demo_customers_have_scenario_ids():
+    ids = {"fraud_flagged", "pending", "mx_debit_48h", "co_purchase", "ar_purchase", "compliance", "bank_message"}
+    items = client.get("/api/demo/customers").json()
+    assert items and all(d["scenario"] in ids for d in items)
+    assert len({d["scenario"] for d in items}) == len(items)

@@ -64,6 +64,19 @@ def health():
             "transcript_verification": transcript_keys.KEY_MODE}
 
 
+# Stable scenario ids for the demo picker (specs/004, T012): the browser shows each in the app language. The
+# English `label` stays for the UI checks.
+SCENARIOS = {
+    "charge flagged by the fraud-risk estimate": "fraud_flagged",
+    "pending charge": "pending",
+    "México, debit card, last 48 hours": "mx_debit_48h",
+    "Colombia, card purchase": "co_purchase",
+    "Argentina, card purchase": "ar_purchase",
+    "charge under compliance review (synthetic)": "compliance",
+    "received a real bank message": "bank_message",
+}
+
+
 @app.get("/api/demo/customers")
 def demo_customers():
     """Development-only picker standing in for a trusted identity service: customers whose recent
@@ -88,7 +101,7 @@ def demo_customers():
             "ORDER BY t.transaction_date DESC LIMIT 1", [since])
         if rows:
             r = rows[0]
-            out.append({"label": label, "customer_id": r["customer_id"], "first_name": r["first_name"], "country": r["country"],
+            out.append({"label": label, "scenario": SCENARIOS[label], "customer_id": r["customer_id"], "first_name": r["first_name"], "country": r["country"],
                         "hint": {"amount": r["amount"], "currency": r["currency"], "merchant": r["merchant_name"],
                                  "date": r["transaction_date"]}})
     contact = store.query(
@@ -97,7 +110,8 @@ def demo_customers():
         "ORDER BY o.contact_ts DESC LIMIT 1", [since])
     if contact:
         r = contact[0]
-        out.append({"label": "received a real bank message", "customer_id": r["customer_id"], "first_name": r["first_name"],
+        out.append({"label": "received a real bank message", "scenario": SCENARIOS["received a real bank message"],
+                    "customer_id": r["customer_id"], "first_name": r["first_name"],
                     "country": r["country"], "hint": {"channel": r["channel"], "date": r["contact_ts"]}})
     return out
 

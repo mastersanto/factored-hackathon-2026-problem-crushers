@@ -4,6 +4,7 @@ import { AgentQueue } from './AgentQueue'
 import { api, HttpError, type DemoCustomer, type Lang } from './api'
 import { Chat } from './Chat'
 import { TEXT } from './i18n'
+import { useLanguage } from './language'
 import { Icon } from './icons'
 
 type View = 'customer' | 'agent'
@@ -12,13 +13,16 @@ interface Session { id: string; conversationRef: string; customer: DemoCustomer 
 export default function App() {
   const [view, setView] = useState<View>('customer')
   const [session, setSession] = useState<Session | null>(null)
-  // The conversation's language, reported by the chat. Sign-in and the specialist view are in Spanish (FR-203).
-  const [chatLang, setChatLang] = useState<Lang>('es')
+  // The app language (specs/004): from the browser, or the visitor's stored choice. The chat reports its own
+  // language, which follows the latest reply once there is one (specs/003 rule, until specs/004 US3).
+  const { lang: appLang } = useLanguage()
+  const [chatLang, setChatLang] = useState<Lang>(appLang)
   const health = useQuery({ queryKey: ['health'], queryFn: api.health })
-  const lang: Lang = view === 'customer' && session ? chatLang : 'es'
+  const lang: Lang = view === 'customer' && session ? chatLang : appLang
+  const T = TEXT[appLang]
   useEffect(() => { document.documentElement.lang = lang }, [lang])
   const onLang = useCallback((l: Lang) => setChatLang(l), [])
-  const leave = useCallback(() => { setSession(null); setChatLang('es') }, [])
+  const leave = useCallback(() => { setSession(null); setChatLang(appLang) }, [appLang])
 
   return (
     <div className="app">
@@ -26,18 +30,18 @@ export default function App() {
         <div className="header-inner">
           <div className="brand">
             <span className="brand-mark" aria-hidden="true"><Icon name="account_balance" size={22} /></span>
-            <span className="brand-text"><span className="brand-name">Explica este cargo</span><span className="brand-sub">LATAM Bank</span></span>
+            <span className="brand-text"><span className="brand-name">{T.app.brand}</span><span className="brand-sub">LATAM Bank</span></span>
           </div>
-          <nav className="views" aria-label="Vista">
-            <button type="button" aria-current={view === 'customer' ? 'page' : undefined} onClick={() => setView('customer')}>Cliente</button>
-            <button type="button" aria-current={view === 'agent' ? 'page' : undefined} onClick={() => setView('agent')}>Especialista</button>
+          <nav className="views" aria-label={T.app.nav}>
+            <button type="button" aria-current={view === 'customer' ? 'page' : undefined} onClick={() => setView('customer')}>{T.app.customerTab}</button>
+            <button type="button" aria-current={view === 'agent' ? 'page' : undefined} onClick={() => setView('agent')}>{T.app.specialistTab}</button>
           </nav>
           <span className="header-spacer" />
           <span className={`health${health.data?.llm_enabled ? ' llm' : ''}`}>
             {health.data
               ? <><Icon name={health.data.llm_enabled ? 'check_circle' : 'rule'} size={16} />
-                  Datos al {health.data.as_of.slice(0, 10)} · {health.data.llm_enabled ? 'Claude activo' : 'Modo reglas (sin IA)'}</>
-              : 'Conectando…'}
+                  {T.app.dataAsOf(health.data.as_of.slice(0, 10))} · {health.data.llm_enabled ? T.app.claudeOn : T.app.rulesMode}</>
+              : T.app.connecting}
           </span>
         </div>
         {view === 'customer' && (
@@ -52,16 +56,17 @@ export default function App() {
           : session
             ? <Chat key={session.id} sessionId={session.id} conversationRef={session.conversationRef}
                 firstName={session.customer.first_name} country={session.customer.country}
-                suggestions={suggestionsFor(session.customer)} onChangeCustomer={leave} onLang={onLang} />
-            : <DemoLogin onStart={setSession} />}
+                suggestions={suggestionsFor(session.customer)} initialLang={appLang} onChangeCustomer={leave} onLang={onLang} />
+            : <DemoLogin lang={appLang} onStart={setSession} />}
       </main>
-      <footer className="page-footer">Demostración con datos sintéticos · Factored AI &amp; Data Hackathon 2026</footer>
+      <footer className="page-footer">{T.app.footer}</footer>
     </div>
   )
 }
 
 /** Stand-in for a trusted identity service: identity comes from the session, never from chat text. */
-function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
+function DemoLogin({ lang, onStart }: { lang: Lang; onStart: (s: Session) => void }) {
+  const t = TEXT[lang].signIn
   const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ['demo'], queryFn: api.demoCustomers })
   const [opening, setOpening] = useState<string | null>(null)
   const [startError, setStartError] = useState<'limit' | 'failed' | null>(null)
@@ -79,12 +84,12 @@ function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
   return (
     <div className="login">
       <div className="login-head">
-        <h1>Revisemos juntos su cargo</h1>
-        <p className="lead">Elija un cliente para empezar. Le explicaremos el cargo con los registros del banco.</p>
-        <p className="notice"><Icon name="science" size={18} /><span>Clientes sintéticos de prueba. En producción la identidad viene del inicio de sesión del banco.</span></p>
+        <h1>{t.heading}</h1>
+        <p className="lead">{t.lead}</p>
+        <p className="notice"><Icon name="science" size={18} /><span>{t.notice}</span></p>
       </div>
       {isLoading && <>
-        <p className="status-line" role="status">Cargando clientes de prueba…</p>
+        <p className="status-line" role="status">{t.loading}</p>
         <ul className="customer-list" aria-hidden="true">
           {[1, 2, 3, 4, 5, 6].map((k) => (
             <li key={k} className="skeleton-card">
@@ -97,20 +102,18 @@ function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
       {error && (
         <div className="alert-block" role="alert">
           <Icon name="cloud_off" size={24} />
-          <span>No pudimos conectar. Sus datos están a salvo; intente de nuevo.</span>
-          <button type="button" className="btn" disabled={isFetching} onClick={() => void refetch()}><Icon name="refresh" />Reintentar</button>
+          <span>{t.connectError}</span>
+          <button type="button" className="btn" disabled={isFetching} onClick={() => void refetch()}><Icon name="refresh" />{t.retry}</button>
         </div>
       )}
       {startError && (
         <div className="alert-block" role="alert">
           <Icon name={startError === 'limit' ? 'schedule' : 'cloud_off'} size={24} />
-          <span>{startError === 'limit'
-            ? 'Se abrieron demasiadas conversaciones desde esta conexión. Intente de nuevo más tarde.'
-            : 'No pudimos abrir la conversación. Sus datos están a salvo; intente de nuevo.'}</span>
+          <span>{startError === 'limit' ? t.limit : t.failed}</span>
         </div>
       )}
       {data && (
-        <ul className="customer-list" aria-label="Clientes de prueba">
+        <ul className="customer-list" aria-label={t.list}>
           {data.map((c) => (
             <li key={c.customer_id}>
               <button type="button" className="customer-card" disabled={opening !== null} aria-busy={opening === c.customer_id}
@@ -119,8 +122,8 @@ function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
                   <span className="avatar soft" aria-hidden="true">{c.first_name.slice(0, 1).toUpperCase()}</span>
                   <span className="cc-name"><strong>{c.first_name}</strong><span className="muted small">{c.country}</span></span>
                 </span>
-                <span className="cc-label">{c.label}</span>
-                <span className="cc-foot">{opening === c.customer_id ? 'Abriendo…' : <>Empezar<Icon name="arrow_forward" size={18} /></>}</span>
+                <span className="cc-label">{TEXT[lang].scenario[c.scenario] ?? c.label}</span>
+                <span className="cc-foot">{opening === c.customer_id ? t.opening : <>{t.start}<Icon name="arrow_forward" size={18} /></>}</span>
               </button>
             </li>
           ))}

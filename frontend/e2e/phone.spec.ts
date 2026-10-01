@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { TEXT } from '../src/i18n'
 import { chargeMessage, claimPath, contactPathPt, noSideScroll, SCENARIO, send, signIn } from './helpers'
 
 // US3: use it on a phone (FR-208 to FR-211; SC-203). Phone projects only.
@@ -42,4 +43,19 @@ test('the call check and the specialist view fit', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Casos para revisar' })).toBeVisible()
   await noSideScroll(page)
   await tapTargets(page)
+})
+
+// specs/004 US1: English texts fit too (SC-408).
+test.describe('in English', () => {
+  test.use({ locale: 'en-US' })
+
+  test('sign-in and the specialist view fit, with large targets', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('list', { name: TEXT.en.signIn.list })).toBeVisible()
+    await noSideScroll(page)
+    await tapTargets(page)
+    await page.getByRole('button', { name: TEXT.en.app.specialistTab }).click()
+    await expect(page.getByRole('heading', { name: TEXT.en.specialist.title })).toBeVisible()
+    await noSideScroll(page)
+  })
 })

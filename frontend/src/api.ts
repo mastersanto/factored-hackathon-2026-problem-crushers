@@ -12,7 +12,10 @@ export type ChatEvent =
   | { type: 'error'; code: string; text: string }
   | { type: 'done'; stage: string; suggestions: string[] | null; lang?: Lang }
 
-export type Lang = 'es' | 'pt'
+export type Lang = 'en' | 'es' | 'pt'
+
+/** Stable ids of the demo scenarios (specs/004, T012); the sign-in card shows each in the app language. */
+export type ScenarioId = 'fraud_flagged' | 'pending' | 'mx_debit_48h' | 'co_purchase' | 'ar_purchase' | 'compliance' | 'bank_message'
 
 export interface Candidate { option: number; transaction_id: string; when: string; amount: string; merchant: string; status: string }
 
@@ -37,6 +40,7 @@ export interface Handoff {
 
 export interface DemoCustomer {
   label: string
+  scenario: ScenarioId
   customer_id: string
   first_name: string
   country: string
