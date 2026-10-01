@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { AgentQueue } from './AgentQueue'
-import { api, type DemoCustomer, type Lang } from './api'
+import { api, HttpError, type DemoCustomer, type Lang } from './api'
 import { Chat } from './Chat'
 import { TEXT } from './i18n'
 import { Icon } from './icons'
@@ -64,11 +64,16 @@ export default function App() {
 function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
   const { data, isLoading, error, refetch, isFetching } = useQuery({ queryKey: ['demo'], queryFn: api.demoCustomers })
   const [opening, setOpening] = useState<string | null>(null)
+  const [startError, setStartError] = useState<'limit' | 'failed' | null>(null)
   const start = async (c: DemoCustomer) => {
     setOpening(c.customer_id)
+    setStartError(null)
     try {
       const s = await api.startSession(c.customer_id)
       onStart({ id: s.session_id, conversationRef: s.conversation_ref, customer: c })
+    } catch (err) {
+      // 429: the per-visitor session limit on the public demo (SESSIONS_PER_IP_HOUR).
+      setStartError(err instanceof HttpError && err.status === 429 ? 'limit' : 'failed')
     } finally { setOpening(null) }
   }
   return (
@@ -94,6 +99,14 @@ function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
           <Icon name="cloud_off" size={24} />
           <span>No pudimos conectar. Sus datos están a salvo; intente de nuevo.</span>
           <button type="button" className="btn" disabled={isFetching} onClick={() => void refetch()}><Icon name="refresh" />Reintentar</button>
+        </div>
+      )}
+      {startError && (
+        <div className="alert-block" role="alert">
+          <Icon name={startError === 'limit' ? 'schedule' : 'cloud_off'} size={24} />
+          <span>{startError === 'limit'
+            ? 'Se abrieron demasiadas conversaciones desde esta conexión. Espere unos minutos e intente de nuevo.'
+            : 'No pudimos abrir la conversación. Sus datos están a salvo; intente de nuevo.'}</span>
         </div>
       )}
       {data && (

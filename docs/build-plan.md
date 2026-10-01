@@ -91,6 +91,8 @@ customer (web chat, ES/PT)
   - acceptance by Playwright screenshots at 1200 and 375 px, plus axe.
 - **Not built from the prototype**, because each needs a workflow or API change: "Hablar con una persona", "Ninguno de estos cargos", "Tomar caso", full name and card on sign-in, the deadline in the case card, and a new PDF layout.
 
+- **Fix after 003 (2026-09-30)**: sign-in no longer fails silently. A 429 from the per-visitor session limit says there were too many conversations from this connection, and any other failure says the conversation could not be opened. Covered by `frontend/e2e/signin-errors.spec.ts`, with the API stubbed.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

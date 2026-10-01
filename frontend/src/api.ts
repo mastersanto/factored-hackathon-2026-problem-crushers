@@ -43,8 +43,13 @@ export interface DemoCustomer {
   hint: Record<string, string | number | null>
 }
 
+export class HttpError extends Error {
+  status: number
+  constructor(status: number, message: string) { super(message); this.status = status }
+}
+
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) throw new HttpError(res.status, `${res.status} ${res.statusText}`)
   return res.json() as Promise<T>
 }
 
@@ -55,11 +60,6 @@ export const api = {
   startSession: (customer_id: string) =>
     fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id }) })
       .then(json<{ session_id: string; conversation_ref: string; customer: { first_name: string; country: string } }>),
-}
-
-export class HttpError extends Error {
-  status: number
-  constructor(status: number, message: string) { super(message); this.status = status }
 }
 
 /** Download the conversation as a PDF (specs/002). The server builds it from what it streamed to this

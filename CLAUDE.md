@@ -50,12 +50,11 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 
 - **Restarting the API**: kill uvicorn by PID and start it in a separate command, with `--reload`. A chained `pkill -f uvicorn` can match its own shell. An API started without `--reload` keeps serving old routes, and a POST to a missing `/api/...` route then returns 405 from the static-file mount.
 - **Sessions live in memory**: every API restart ends open chats, so sign in again.
-- **Rate limits**: 30 new sessions per visitor per hour (`SESSIONS_PER_IP_HOUR`). The UI checks create more than that, so run them against an API or container started with a higher limit, or they fail at sign-in with 429.
+- **Rate limits**: 30 new sessions per visitor per hour (`SESSIONS_PER_IP_HOUR`). The UI checks create more than that, so run them against an API or container started with a higher limit, or they fail at sign-in with 429 (the sign-in screen then says there were too many conversations).
 - **Playwright's browser**: the checks expect a headless-shell build that may not be installed. Either run `npx playwright install chromium-headless-shell`, or point `launchOptions.executablePath` at the cached shell under `~/.cache/ms-playwright/`.
 - **New frontend packages after a pull**: run `npm i` in `frontend/`, then restart Vite, which caches failed imports.
 - **The renderer is pinned**: transcript PDFs must render byte for byte the same (fpdf2 `2.8.9`, pypdf `6.19.0`). Bump `RENDERER` in `backend/app/transcript/record.py` whenever the PDF layout changes.
 - **Never commit a generated PDF** (the patterns `conversacion-*.pdf` and `conversa-*.pdf` are ignored) or anything under `backend/data/`.
-- **Known open issue**: when sign-in hits the 429 limit, the UI shows no message (`App.tsx`, `try`/`finally` around `startSession` with no `catch`).
 
 ## Non-negotiables
 
