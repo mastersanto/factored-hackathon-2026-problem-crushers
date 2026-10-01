@@ -44,7 +44,7 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
   - `transcript-key` is created once and kept. **Never change or delete it**: every PDF issued so far would then fail verification.
 - **After a deploy**, wait until the new revision takes 100% of traffic (`az containerapp revision list`) before checking `/api/health`: the first answers can come from the old revision.
 - **The in-container files are lost on scale to zero**: the handoff queue and the fingerprint register. PDFs still verify after that (`registered: false`).
-- **Rollback**: the previous revision stays listed with 0% traffic.
+- **Rollback**: earlier revisions stay listed, inactive with 0% traffic, under `az containerapp revision list --all` (without `--all` only the active one shows). Roll back with `az containerapp revision activate --revision <name>`, then send it the traffic.
 
 ## Gotchas
 
