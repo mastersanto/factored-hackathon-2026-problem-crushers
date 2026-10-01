@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-The build for the Factored AI & Data Hackathon 2026, team **Problem Crushers**: "Explain this charge", a transaction-dispute intake assistant for LATAM Bank customers in Mexico, Colombia, and Argentina, in Spanish and Portuguese (English is being added in feature 004).
+The build for the Factored AI & Data Hackathon 2026, team **Problem Crushers**: "Explain this charge", a transaction-dispute intake assistant for LATAM Bank customers in Mexico, Colombia, and Argentina, in English, Spanish, and Portuguese (English since feature 004).
 
 - **Public repository name**: `factored-hackathon-2026-problem-crushers`, as the organizers require.
 - **Deadline**: submissions close 2026-10-05, midnight Colombia time.
@@ -19,7 +19,7 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
   - `specs/001-dispute-intake-assistant/`: the assistant, as built. Open: T034-T035 (only if the financial specialist's answers arrive), T042 video and T044 submission (owner).
   - `specs/002-chat-transcript-pdf/`: the conversation as a PDF with a check code (HMAC; the bank keeps only fingerprints). Done and deployed. Open: T036, a reader check with 5 or more people (owner).
   - `specs/003-ui-improvements/`: UI in the customer's language, source labels, phone width, accessibility. Merged and deployed. Open items in its `pending.md` (manual checks and a label test, owner).
-  - `specs/004-browser-language/`: the whole app and the conversation in English, Spanish, and Portuguese; language from the browser, then from what the customer writes, with a switcher; switching re-shows the conversation. Spec, plan, and tasks (T001-T057, three increments) done; constitution v1.1.0 adds English. Next: `/speckit-implement`, increment 1 first.
+  - `specs/004-browser-language/`: the whole app and the conversation in English, Spanish, and Portuguese; language from the browser, then from what the customer writes, with a switcher; switching re-shows the conversation. Built (T001-T054, commits `bf5f7fc`..`97fc934`), not yet deployed. Open: T055-T057 (final gates, then the owner decides on `make eval-llm` and the redeploy).
 - **`.specify/feature.json`** (git-ignored) points the `/speckit-*` commands at the current feature. Update it when starting a new one.
 - **Keeping tasks current**: check off a task in `tasks.md` when its work lands. Update the spec or plan when scope or architecture changes, and record decisions in `docs/build-plan.md`.
 
@@ -55,7 +55,8 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 - **Playwright's browser**: the checks expect a headless-shell build that may not be installed. Either run `npx playwright install chromium-headless-shell`, or point `launchOptions.executablePath` at the cached shell under `~/.cache/ms-playwright/`.
 - **New frontend packages after a pull**: run `npm i` in `frontend/`, then restart Vite, which caches failed imports.
 - **The renderer is pinned**: transcript PDFs must render byte for byte the same (fpdf2 `2.8.9`, pypdf `6.19.0`). Bump `RENDERER` in `backend/app/transcript/record.py` whenever the PDF layout changes.
-- **Never commit a generated PDF** (the patterns `conversacion-*.pdf` and `conversa-*.pdf` are ignored) or anything under `backend/data/`.
+- **Never commit a generated PDF** (the patterns `conversacion-*.pdf`, `conversa-*.pdf`, and `conversation-*.pdf` are ignored) or anything under `backend/data/`.
+- **Two PDF renderers**: `render_v1.py` (r1, schema 1) is frozen so PDFs issued before specs/004 keep verifying; never edit it. Layout changes go in `render.py` with a new `RENDERER` suffix and a new entry in `verify.RENDERERS`.
 
 ## Non-negotiables
 

@@ -86,3 +86,7 @@ What the table shows:
 - **MLflow experiment `fraud-risk`**: one run per candidate, holding parameters, validation and test metrics, and the chosen model plus its report as artifacts.
 - **Determinism**: the negative sample uses a fixed seed (`SEED = 42`), and the split dates are constants in the code.
 - **To view the runs**: `mlflow ui --backend-store-uri sqlite:///backend/data/mlflow.db`
+
+## Other model uses (not this model)
+
+This card covers the fraud-risk estimate only. The assistant also uses Claude for language, at the edges of the workflow (constitution v1.1.0, Principle I): Haiku 4.5 reads what the customer means, and, since specs/004, translates the customer's own words for display when the conversation is shown in another language. Those translations are marked as such, accepted only if they keep every number and a plausible length, sent only the masked text, cached, and counted against the spend cap; the customer's original words remain the record. Sonnet 5.5 rewords verified facts under the faithfulness check. None of these decides an outcome.

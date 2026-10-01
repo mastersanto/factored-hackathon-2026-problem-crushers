@@ -318,6 +318,7 @@ A task is checked off only when its gates pass.
   - `(2, "fpdf2-2.8.9/r2")` → `render.render`;
   - anything else → `unknown_version`.
 - [X] T049 [US5] In `transcript_pdf` in `backend/app/api/main.py`, build the snapshot in `s.lang`. First fill the missing customer translations through `translate_customer`, within the spend cap. Use the language-specific file name.
+  - **As built**: the PDF uses only translations already made for the screen and never calls a model, because specs/002 FR-112 (and its test) forbid a model call when producing a PDF. A message never translated shows "no translation" in the PDF.
 - [X] T050 [US5] Add tests to `backend/tests/test_transcript.py`:
   - a schema-1 r1 PDF (the T001 snapshot) verifies as a match through `verify()`;
   - a PDF in each of en, es, and pt verifies as a match;
@@ -350,7 +351,7 @@ A task is checked off only when its gates pass.
   - English has 0 unsafe outcomes, within 5 points of Spanish;
   - `language_switch` is at 100%;
   - parity is at 100%.
-- [ ] T054 [P] Update the documentation:
+- [X] T054 [P] Update the documentation:
   - **`README.md`**: three languages, the switcher, re-showing, English team-generated and labelled.
   - **`docs/limitations.md`**:
     - customer words are not translated in rules mode or past the spend cap;
@@ -361,7 +362,7 @@ A task is checked off only when its gates pass.
   - **`docs/model-card.md`**: the new Haiku use, translating customer words, with its checks.
   - **`docs/build-plan.md`**: decisions as built.
   - **`CLAUDE.md`**: the 004 status line and the English PDF name pattern.
-- [ ] T055 Run all the gates: `make test`, the frontend build, `npm run check:ui` against `SESSIONS_PER_IP_HOUR=1000 LLM_DISABLED=1 make dev`, `make eval`, and the secret scan.
+- [X] T055 Run all the gates: `make test`, the frontend build, `npm run check:ui` against `SESSIONS_PER_IP_HOUR=1000 LLM_DISABLED=1 make dev`, `make eval`, and the secret scan.
 - [ ] T056 Ask the owner before `make eval-llm` (about $3 with the larger sets). If approved, run it and confirm SC-403 to SC-406 in Claude mode.
 - [ ] T057 Ask the owner before `make deploy-azure`. After deploying:
   - wait for 100% traffic on the new revision, and check `/api/health`;

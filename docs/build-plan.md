@@ -106,6 +106,13 @@ customer (web chat, ES/PT)
   - the demo path is Spanish, then a switch to Portuguese, so re-showing the conversation (story 5) is P1 and does not wait for the English conversation.
 - **Needed before implementation**: a constitution amendment adding English to the Hackathon Constraints (MINOR), and English evaluation cases.
 - **Risk**: submissions close 2026-10-05 and the video is not recorded. Stories ship in priority order, each only after every gate passes.
+- **As built (2026-10-01)**, commits `bf5f7fc` to `97fc934`, in increments that each passed every gate:
+  - the interpreter and translator are modules in the one container (`backend/app/language/`), not separate services: one deployment, one cold start, rules mode a function call away;
+  - statement recipes live beside the transcript entries, not in them, so the entries and PDFs stay exactly what the customer saw;
+  - the PDF never calls a model (specs/002 FR-112 wins over T049's first wording): it uses only translations already made for the screen;
+  - English seeds use offset +5 (not +2), which overlaps no Spanish or Portuguese seed in any set;
+  - the evaluation found two real defects, both fixed in general with regression tests: English answers could not be graded as pending or caught as promises or requests for secrets, and English codes typed by a customer were not masked in the PDF;
+  - found on the way: `make test` called the paid model whenever `.env.local` had a key; `backend/tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model.
 
 ### Why not TanStack AI (for now)
 

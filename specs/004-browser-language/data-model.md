@@ -76,7 +76,7 @@ The whole conversation in one language, in the same event shapes the chat alread
 | `schema` | `2` |
 | `renderer` | `fpdf2-2.8.9/r2` |
 | `lang` | `en \| es \| pt`: the session's language at download |
-| `entries[].kind = customer` | `original`, `original_lang`, and when `original_lang != lang`: `translation` or `translation_missing: true` |
+| `entries[].kind = customer` | `text` (the customer's own words, as in schema 1), `original_lang`, and when `original_lang != lang`: `translation` or `translation_missing: true` (as built: `text` kept instead of a new `original` field, so every schema-1 reader still works) |
 | `entries[].kind = message` | `text` and `statements` in `lang` (re-rendered when needed). No `key` or `params` |
 | all other fields | unchanged |
 

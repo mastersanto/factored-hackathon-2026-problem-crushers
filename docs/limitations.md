@@ -9,7 +9,7 @@ What this prototype does not do, what its numbers do not prove, and what a bank 
 | The dataset is **synthetic**, and several fields are random with respect to the facts: decline response codes (only 7.3% match the facts), SLA flags, credit repayment, app-error timing. | Explanations built on those fields would be wrong. | The assistant explains only fields that behave consistently: merchant, amount, date, place, channel, card, status. It never explains a response code. |
 | **Currency follows the product, not the purchase.** There are no MXN transactions, and 52.8% of domestic purchases are in a foreign currency. | Exchange-rate explanations are impossible. | The recorded currency is reported as is. Exchange-rate and installment explanations are out of scope. |
 | **Only 24 merchant names.** | "You've paid this merchant before" carries little weight. | The history is stated as a known fact, not as proof. |
-| **No customer messages about disputes, and no Portuguese.** Every transcript in the data is a balance inquiry. | Understanding cannot be trained or tested on real dispute wording. | The evaluation conversations are team-generated, in Spanish and Portuguese, and labelled as such. A separate set of held-out phrasings tests generalization. |
+| **No customer messages about disputes, and no Portuguese or English.** Every transcript in the data is a balance inquiry. | Understanding cannot be trained or tested on real dispute wording. | The evaluation conversations are team-generated, in Spanish and Portuguese, and labelled as such. A separate set of held-out phrasings tests generalization. |
 | **No link from a complaint to a transaction**, and complaint descriptions are templates. | Claims cannot be matched to past outcomes. | Handoffs carry the verified transaction instead. |
 | **The fraud label is random with respect to every behavioural feature.** The detector score separates about half the frauds perfectly, and may be derived from the label. | A behavioural model scores at chance. The learned component mostly recovers the generator's boundary. | This is documented in `docs/model-card.md`. The estimate only sets priority and adds one hedged sentence; a "no fui yo" always reaches a person. |
 | **No charge is flagged as under anti-money-laundering review.** | The "never explain" rule (FR-018) could not be exercised. | A labelled synthetic review list (0.05% of transactions) demonstrates it. |
@@ -22,10 +22,17 @@ What this prototype does not do, what its numbers do not prove, and what a bank 
 - **The simulated customer is cooperative.** It always answers the assistant's question and picks the right option. Real customers drop off, change their minds, or answer something else.
 - **The legal rules come from desk research**, not from a lawyer's or the financial specialist's validation (still pending). They cover Mexico, Colombia, and Argentina only.
 - **Model outputs vary between runs.** Repeated runs are reported in `docs/evaluation.md`, but three runs give a range, not a confidence interval.
+- **English (specs/004) is measured in rules mode only so far.** The Claude-mode results predate English; a new paid run is needed. The English held-out phrasings were written after the rules and never used to tune them, but by the same author who wrote the rules, which may make them easier than a stranger's English.
 - **Fairness has not been measured.** No outcome is broken down by country, segment, or accent beyond the correct-outcome and unsafe rates, and the fraud estimate is not audited for disparate impact. Its only input is the transaction's detector score.
 
 ## 3. Product scope
 
+- **Languages (specs/004)**:
+  - the customer's own words are translated for display only with a model; in rules mode, or past the spend cap, they are shown as written, with a note;
+  - a reply the model reworded is re-shown in another language in its fixed wording, not re-phrased (switching stays free and instant), and comes back as first sent in its own language;
+  - numeric dates are read day first in every language, since every customer is in Mexico, Colombia, or Argentina ("06/12" is 6 December, even in English);
+  - the PDF uses only the translations already made for the screen and never calls a model; a customer message never translated shows "no translation" in it;
+  - the specialist's translations of a case are kept in memory only and redone after a restart.
 - **One workflow only**: dispute intake. The assistant does not decide claims, refund, block merchants, or move money, and it cannot cancel a recurring charge itself. It hands those requests to a person.
 - **The synthetic fee schedule was not built.** For the bank's own charges (fees, interest), the assistant files a complete claim but does not explain the fee.
 - **No real channels.** It is web chat only; there is no WhatsApp, phone, or email integration.
@@ -59,7 +66,7 @@ The customer can download the conversation as a PDF with a check code (`specs/00
 
 - **Validated rules**: fold in the financial specialist's answers on police reports, recurring-charge cancellation, and fee values.
 - **Synthetic fee schedule**: explain the bank's own charges against published rules.
-- **Richer understanding tests**: real (anonymized) customer messages, multi-intent messages, and adversarial prompts in both languages.
+- **Richer understanding tests**: real (anonymized) customer messages, multi-intent messages, and adversarial prompts in all three languages, written by people who did not write the rules.
 - **Signed transcripts**: a PAdES signature with a bank certificate, so anyone can verify a transcript offline, and a durable register.
 - **Proactive "is this really my bank?" check**: before a customer shares a code, the bank's app could confirm whether a contact is genuine.
 - **Follow-up stage**: let the customer check the status and deadline of a filed claim, the natural next workflow (`complaint-status-tracker` in the ideation repository).
