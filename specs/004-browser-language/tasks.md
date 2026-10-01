@@ -282,16 +282,16 @@ A task is checked off only when its gates pass.
 
 **Independent Test**: on each screen, pick each language in turn. Every fixed text switches at once, the choice survives a reload, and an open conversation continues.
 
-- [ ] T042 [P] [US4] Create `frontend/src/components/LanguageSwitcher.tsx` per contracts/ui.md:
+- [X] T042 [P] [US4] Create `frontend/src/components/LanguageSwitcher.tsx` per contracts/ui.md:
   - a labelled group of three buttons, "EN", "ES", "PT";
   - spoken names "English", "Español", "Português", each with its own `lang` attribute;
   - `aria-pressed` on the current option;
   - each option at least 44 × 44 px at phone width.
-- [ ] T043 [US4] Place the switcher in the header in `frontend/src/App.tsx`, and adjust `.header-inner` in `frontend/src/index.css` so the header fits at 360 and 375 px with no sideways scroll. On pick:
+- [X] T043 [US4] Place the switcher in the header in `frontend/src/App.tsx`, and adjust `.header-inner` in `frontend/src/index.css` so the header fits at 360 and 375 px with no sideways scroll. On pick:
   - `setLang(l)` and `storeLanguage(l)`;
   - during a session, call `setSessionLanguage` and `replaceTurns` (T039);
   - keep the composer's unsent text, and keep focus on the switcher.
-- [ ] T044 [US4] Add `frontend/e2e/switcher.spec.ts`:
+- [X] T044 [US4] Add `frontend/e2e/switcher.spec.ts`:
   - switching on sign-in, in the chat, and in the specialist view changes every fixed text;
   - the choice persists across a reload;
   - during a conversation, a switch re-shows earlier messages;

@@ -4,7 +4,8 @@ import { AgentQueue } from './AgentQueue'
 import { api, HttpError, type DemoCustomer, type Lang } from './api'
 import { Chat } from './Chat'
 import { TEXT } from './i18n'
-import { useLanguage } from './language'
+import { LanguageSwitcher } from './components/LanguageSwitcher'
+import { storeLanguage, useLanguage } from './language'
 import { Icon } from './icons'
 
 type View = 'customer' | 'agent'
@@ -15,7 +16,10 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   // The app language (specs/004): from the browser or the visitor's stored choice, then the language the customer
   // writes in. One language for every screen, chat included (FR-408).
-  const { lang } = useLanguage()
+  const { lang, setLang } = useLanguage()
+  // The switcher: the whole app changes at once, and the choice is remembered on this device (FR-405, FR-406).
+  // An open conversation is re-shown in the new language by the chat itself (useChat).
+  const pick = useCallback((l: Lang) => { setLang(l); storeLanguage(l) }, [setLang])
   const health = useQuery({ queryKey: ['health'], queryFn: api.health })
   const T = TEXT[lang]
   useEffect(() => { document.documentElement.lang = lang }, [lang])
@@ -34,6 +38,7 @@ export default function App() {
             <button type="button" aria-current={view === 'agent' ? 'page' : undefined} onClick={() => setView('agent')}>{T.app.specialistTab}</button>
           </nav>
           <span className="header-spacer" />
+          <LanguageSwitcher lang={lang} onPick={pick} />
           <span className={`health${health.data?.llm_enabled ? ' llm' : ''}`}>
             {health.data
               ? <><Icon name={health.data.llm_enabled ? 'check_circle' : 'rule'} size={16} />
