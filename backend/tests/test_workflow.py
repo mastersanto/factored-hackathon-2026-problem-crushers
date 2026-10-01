@@ -168,3 +168,17 @@ def test_compliance_hold_reveals_nothing_to_the_customer():
     assert d["hint"]["merchant"].lower() not in said            # the bank says nothing about the charge
     h = of(ev, "handoff")[0]["handoff"]                      # the specialist queue has the full case
     assert h["case_type"] == "compliance_review"
+
+
+def test_session_limit_counts_the_proxy_address_not_a_forged_one():
+    """Only the last X-Forwarded-For entry comes from the hosting proxy; a client-supplied entry must not
+    open a fresh allowance."""
+    from app.config import settings
+    cid = next(iter(DEMO.values()))["customer_id"]
+    statuses = [client.post("/api/session", json={"customer_id": cid},
+                            headers={"X-Forwarded-For": f"10.9.{i}.1, 203.0.113.77"}).status_code
+                for i in range(settings.sessions_per_ip_hour + 1)]
+    assert statuses[:-1] == [200] * settings.sessions_per_ip_hour
+    assert statuses[-1] == 429
+    other = client.post("/api/session", json={"customer_id": cid}, headers={"X-Forwarded-For": "203.0.113.78"})
+    assert other.status_code == 200

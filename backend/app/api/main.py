@@ -106,8 +106,10 @@ _session_log: dict[str, deque] = defaultdict(deque)
 
 
 def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")  # set by the hosting proxy
-    return fwd.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+    # The hosting proxy (Azure Container Apps ingress) appends the address it saw to X-Forwarded-For.
+    # Earlier entries come from the client and can be forged, so only the last one counts.
+    fwd = request.headers.get("x-forwarded-for", "")
+    return fwd.split(",")[-1].strip() or (request.client.host if request.client else "unknown")
 
 
 _transcript_log: dict[str, deque] = defaultdict(deque)

@@ -105,7 +105,7 @@ function DemoLogin({ onStart }: { onStart: (s: Session) => void }) {
         <div className="alert-block" role="alert">
           <Icon name={startError === 'limit' ? 'schedule' : 'cloud_off'} size={24} />
           <span>{startError === 'limit'
-            ? 'Se abrieron demasiadas conversaciones desde esta conexión. Espere unos minutos e intente de nuevo.'
+            ? 'Se abrieron demasiadas conversaciones desde esta conexión. Intente de nuevo más tarde.'
             : 'No pudimos abrir la conversación. Sus datos están a salvo; intente de nuevo.'}</span>
         </div>
       )}

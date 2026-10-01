@@ -91,7 +91,7 @@ customer (web chat, ES/PT)
   - acceptance by Playwright screenshots at 1200 and 375 px, plus axe.
 - **Not built from the prototype**, because each needs a workflow or API change: "Hablar con una persona", "Ninguno de estos cargos", "Tomar caso", full name and card on sign-in, the deadline in the case card, and a new PDF layout.
 
-- **Fix after 003 (2026-09-30)**: sign-in no longer fails silently. A 429 from the per-visitor session limit says there were too many conversations from this connection, and any other failure says the conversation could not be opened. Covered by `frontend/e2e/signin-errors.spec.ts`, with the API stubbed.
+- **Fix after 003 (2026-09-30)**: sign-in no longer fails silently. A 429 from the per-visitor session limit says there were too many conversations from this connection, and any other failure says the conversation could not be opened. Covered by `frontend/e2e/signin-errors.spec.ts`, with the API stubbed. The 429 text says "más tarde", not "unos minutos": the window slides over an hour. The limit now keys on the last `X-Forwarded-For` entry (the one Azure's ingress appends); the first entry is client-supplied and let anyone reset the limit with a forged header.
 
 ### Why not TanStack AI (for now)
 
