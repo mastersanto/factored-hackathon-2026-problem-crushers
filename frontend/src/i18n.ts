@@ -51,6 +51,8 @@ export interface TextSet {
   networkError: (detail: string) => string
   /** The line under the opening message: which languages the customer can write in. */
   languages: string
+  /** Re-showing a conversation in another language (specs/004, US5). */
+  reshow: { translated: string; showOriginal: string; hideOriginal: string; noTranslation: string; announced: string }
   app: {
     brand: string
     nav: string
@@ -184,6 +186,13 @@ export const TEXT: Record<Lang, TextSet> = {
     aria: { messages: 'Conversation', replies: 'Quick replies', examples: 'Examples', customer: 'Customer' },
     networkError: (detail) => `The service could not be reached (${detail}).`,
     languages: 'You can write in English, Spanish, or Portuguese.',
+    reshow: {
+      translated: 'Translated',
+      showOriginal: 'Show original',
+      hideOriginal: 'Hide original',
+      noTranslation: 'Shown as written: no translation available',
+      announced: 'Conversation shown in English',
+    },
     app: {
       brand: 'Explain this charge',
       nav: 'View',
@@ -334,6 +343,13 @@ export const TEXT: Record<Lang, TextSet> = {
     aria: { messages: 'Conversación', replies: 'Respuestas rápidas', examples: 'Ejemplos', customer: 'Cliente' },
     networkError: (detail) => `No se pudo contactar el servicio (${detail}).`,
     languages: 'Puede escribir en español, portugués o inglés · Pode escrever em português, espanhol ou inglês · You can write in English',
+    reshow: {
+      translated: 'Traducido',
+      showOriginal: 'Ver original',
+      hideOriginal: 'Ocultar original',
+      noTranslation: 'Tal como se escribió: no hay traducción disponible',
+      announced: 'Conversación mostrada en español',
+    },
     app: {
       brand: 'Explica este cargo',
       nav: 'Vista',
@@ -484,6 +500,13 @@ export const TEXT: Record<Lang, TextSet> = {
     aria: { messages: 'Conversa', replies: 'Respostas rápidas', examples: 'Exemplos', customer: 'Cliente' },
     networkError: (detail) => `Não foi possível contatar o serviço (${detail}).`,
     languages: 'Puede escribir en español, portugués o inglés · Pode escrever em português, espanhol ou inglês · You can write in English',
+    reshow: {
+      translated: 'Traduzido',
+      showOriginal: 'Ver original',
+      hideOriginal: 'Ocultar original',
+      noTranslation: 'Como foi escrito: não há tradução disponível',
+      announced: 'Conversa exibida em português',
+    },
     app: {
       brand: 'Explique esta cobrança',
       nav: 'Visualização',

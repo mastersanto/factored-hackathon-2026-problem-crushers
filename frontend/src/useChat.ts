@@ -1,11 +1,28 @@
-import { useCallback, useState } from 'react'
-import { streamChat, type ChatEvent, type Lang } from './api'
+import { useCallback, useEffect, useState } from 'react'
+import { api, streamChat, type ChatEvent, type ConversationView, type Lang } from './api'
 import { TEXT } from './i18n'
 
 /** One side of an exchange. `lang` is the turn's language: the assistant's from its `done` event, and the
  *  customer's message takes the same one, since it is detected in that turn. `at` is when the browser
  *  started the turn (specs/003, data model "Turn"). */
-export interface Turn { role: 'customer' | 'assistant'; events: ChatEvent[]; text?: string; lang: Lang; at: number }
+export interface Turn {
+  role: 'customer' | 'assistant'
+  events: ChatEvent[]
+  text?: string
+  lang: Lang
+  at: number
+  /** Re-shown in another language (specs/004, US5): a marked translation with its original, or no translation. */
+  translated?: boolean
+  original?: { text: string; lang: Lang }
+  translationMissing?: boolean
+}
+
+function fromView(view: ConversationView): Turn[] {
+  return view.turns.map((t) => ({
+    role: t.role, events: t.events ?? [], text: t.text, lang: t.lang, at: t.at,
+    translated: t.translated, original: t.original, translationMissing: t.translation_missing,
+  }))
+}
 
 export const STEP_ORDER = ['understand', 'decide', 'act', 'verify', 'escalate'] as const
 
@@ -21,6 +38,28 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
   const [replies, setReplies] = useState<string[] | null>(null)
   // At least one turn has finished: the transcript has something to export.
   const [completed, setCompleted] = useState(false)
+  // The language the turns are shown in, and the server session's language. When the app language differs from
+  // the shown one, the conversation is re-shown (specs/004, US5): fetched as is if the server already switched
+  // (a reply in another language), or after asking it to switch (the switcher).
+  const [shownLang, setShownLang] = useState<Lang>(lang)
+  const [serverLang, setServerLang] = useState<Lang>(lang)
+  // Announced once to screen readers when a conversation is re-shown.
+  const [announcement, setAnnouncement] = useState('')
+
+  useEffect(() => {
+    if (!sessionId || busy || lang === shownLang) return
+    let live = true
+    const load = serverLang === lang ? api.getConversation(sessionId) : api.setSessionLanguage(sessionId, lang)
+    load.then((view) => {
+      if (!live) return
+      setTurns(fromView(view))
+      setReplies(view.suggestions)
+      setServerLang(view.lang)
+      setShownLang(view.lang)
+      if (view.turns.length) setAnnouncement(TEXT[view.lang].reshow.announced)
+    }).catch(() => { if (live) setShownLang(lang) })  // keep what is shown; the next reply comes in `lang`
+    return () => { live = false }
+  }, [sessionId, busy, lang, shownLang, serverLang])
 
   const send = useCallback(async (text: string) => {
     if (!sessionId || busy || !text.trim()) return
@@ -28,7 +67,11 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
     const at = Date.now()
     setTurns((t) => [...t, { role: 'customer', events: [], text, lang, at }, { role: 'assistant', events: [], lang, at }])
     const push = (e: ChatEvent) => {
-      if (e.type === 'done') { setStage(e.stage); setReplies(e.suggestions); setCompleted(true); if (e.lang && e.lang !== lang) onLang(e.lang) }
+      if (e.type === 'done') {
+        setStage(e.stage); setReplies(e.suggestions); setCompleted(true)
+        if (e.lang) setServerLang(e.lang)
+        if (e.lang && e.lang !== lang) onLang(e.lang)
+      }
       setTurns((t) => {
         const copy = t.slice()
         const last = copy[copy.length - 1]
@@ -50,7 +93,7 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
   }, [sessionId, busy, lang, onLang])
 
   const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null); setCompleted(false) }, [])
-  return { turns, busy, stage, replies, lang, completed, send, reset }
+  return { turns, busy, stage, replies, lang, completed, send, reset, announcement }
 }
 
 /** The furthest workflow step reached in the latest assistant turn, as an index into STEP_ORDER, or null

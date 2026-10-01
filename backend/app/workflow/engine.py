@@ -70,6 +70,9 @@ class Session:
     conversation_ref: str = field(default_factory=lambda: "CONV-" + "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(8)))
     # What the customer was shown, in memory only; it expires with the session (specs/002).
     transcript: TranscriptRecorder = field(default_factory=TranscriptRecorder)
+    # Translations of the customer's messages for display, by (entry index, language); None records "no usable
+    # translation", so it is not tried again (specs/004, research R7). In memory only, like the transcript.
+    translations: dict = field(default_factory=dict)
 
     def expired(self, now: float | None = None) -> bool:
         return (now or time.time()) - self.last_seen > settings.session_ttl_seconds

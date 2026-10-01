@@ -50,8 +50,8 @@ The three sets are built the same way with different random seeds:
 | Missed transfers (needed a person, got none) | 0.0% (0/90) |
 | Unnecessary transfers | 0.0% (0/180) |
 | Cases with an unsafe outcome | 0.0% (0/270) |
-| Latency per turn, p50 (ms) | 8.1 |
-| Latency per turn, p95 (ms) | 168.7 |
+| Latency per turn, p50 (ms) | 2.5 |
+| Latency per turn, p95 (ms) | 77.3 |
 | LLM cost per case (USD) | 0.0 |
 | LLM cost per safe resolution (USD) | 0.0 |
 
@@ -79,18 +79,18 @@ The three sets are built the same way with different random seeds:
 
 | Group | Rules only: correct / unsafe / p50 ms |
 |---|---|
-| en | 100.0% (90/90) / 0.0% (0/90) / 5.5 |
-| es | 100.0% (90/90) / 0.0% (0/90) / 6.3 |
-| pt | 100.0% (90/90) / 0.0% (0/90) / 8.5 |
+| en | 100.0% (90/90) / 0.0% (0/90) / 3.1 |
+| es | 100.0% (90/90) / 0.0% (0/90) / 3.7 |
+| pt | 100.0% (90/90) / 0.0% (0/90) / 2.4 |
 
 **By customer segment**
 
 | Group | Rules only: correct / unsafe / p50 ms |
 |---|---|
-| Basic | 100.0% (164/164) / 0.0% (0/164) / 9.4 |
-| Plus | 100.0% (68/68) / 0.0% (0/68) / 11.2 |
-| Premium | 100.0% (29/29) / 0.0% (0/29) / 1.1 |
-| Student | 100.0% (9/9) / 0.0% (0/9) / 1.1 |
+| Basic | 100.0% (164/164) / 0.0% (0/164) / 4.3 |
+| Plus | 100.0% (68/68) / 0.0% (0/68) / 7.2 |
+| Premium | 100.0% (29/29) / 0.0% (0/29) / 0.5 |
+| Student | 100.0% (9/9) / 0.0% (0/9) / 0.3 |
 
 ## Test set: new customers and transactions, familiar phrasings
 
@@ -104,8 +104,8 @@ The three sets are built the same way with different random seeds:
 | Missed transfers (needed a person, got none) | 0.0% (0/90) | 1.7% (1/60) |
 | Unnecessary transfers | 0.0% (0/180) | 0.0% (0/120) |
 | Cases with an unsafe outcome | 0.0% (0/270) | 0.0% (0/180) |
-| Latency per turn, p50 (ms) | 4.9 | 1141.5 |
-| Latency per turn, p95 (ms) | 131.5 | 3694.2 |
+| Latency per turn, p50 (ms) | 3.3 | 1141.5 |
+| Latency per turn, p95 (ms) | 74.9 | 3694.2 |
 | LLM cost per case (USD) | 0.0 | 0.00331 |
 | LLM cost per safe resolution (USD) | 0.0 | 0.00501 |
 
@@ -144,18 +144,18 @@ The three sets are built the same way with different random seeds:
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| en | 100.0% (90/90) / 0.0% (0/90) / 5.3 | n/a |
-| es | 100.0% (90/90) / 0.0% (0/90) / 4.9 | 100.0% (90/90) / 0.0% (0/90) / 1217.2 |
-| pt | 100.0% (90/90) / 0.0% (0/90) / 5.8 | 97.8% (88/90) / 0.0% (0/90) / 1087.8 |
+| en | 100.0% (90/90) / 0.0% (0/90) / 3.3 | n/a |
+| es | 100.0% (90/90) / 0.0% (0/90) / 3.4 | 100.0% (90/90) / 0.0% (0/90) / 1217.2 |
+| pt | 100.0% (90/90) / 0.0% (0/90) / 3.2 | 97.8% (88/90) / 0.0% (0/90) / 1087.8 |
 
 **By customer segment**
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| Basic | 100.0% (177/177) / 0.0% (0/177) / 0.9 | 99.2% (117/118) / 0.0% (0/118) / 1206.6 |
-| Plus | 100.0% (57/57) / 0.0% (0/57) / 11.5 | 100.0% (37/37) / 0.0% (0/37) / 1099.5 |
-| Premium | 100.0% (23/23) / 0.0% (0/23) / 31.5 | 100.0% (16/16) / 0.0% (0/16) / 2399.2 |
-| Student | 100.0% (13/13) / 0.0% (0/13) / 1.2 | 88.9% (8/9) / 0.0% (0/9) / 1059.1 |
+| Basic | 100.0% (177/177) / 0.0% (0/177) / 0.5 | 99.2% (117/118) / 0.0% (0/118) / 1206.6 |
+| Plus | 100.0% (57/57) / 0.0% (0/57) / 6.1 | 100.0% (37/37) / 0.0% (0/37) / 1099.5 |
+| Premium | 100.0% (23/23) / 0.0% (0/23) / 11.7 | 100.0% (16/16) / 0.0% (0/16) / 2399.2 |
+| Student | 100.0% (13/13) / 0.0% (0/13) / 0.4 | 88.9% (8/9) / 0.0% (0/9) / 1059.1 |
 
 ## Test set: new customers and transactions, held-out phrasings
 
@@ -169,8 +169,8 @@ The three sets are built the same way with different random seeds:
 | Missed transfers (needed a person, got none) | 18.9% (17/90) | 1.7% (1/60) |
 | Unnecessary transfers | 0.0% (0/180) | 0.0% (0/120) |
 | Cases with an unsafe outcome | 0.0% (0/270) | 0.0% (0/180) |
-| Latency per turn, p50 (ms) | 0.8 | 1117.7 |
-| Latency per turn, p95 (ms) | 125.8 | 3775.9 |
+| Latency per turn, p50 (ms) | 0.5 | 1117.7 |
+| Latency per turn, p95 (ms) | 76.4 | 3775.9 |
 | LLM cost per case (USD) | 0.0 | 0.00327 |
 | LLM cost per safe resolution (USD) | 0.0 | 0.00522 |
 
@@ -228,18 +228,18 @@ The tables above show the first run; percentages here are the rate values.
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| en | 93.3% (84/90) / 0.0% (0/90) / 5.0 | n/a |
-| es | 85.6% (77/90) / 0.0% (0/90) / 0.8 | 96.7% (87/90) / 0.0% (0/90) / 1117.7 |
-| pt | 84.4% (76/90) / 0.0% (0/90) / 0.9 | 94.4% (85/90) / 0.0% (0/90) / 1120.8 |
+| en | 93.3% (84/90) / 0.0% (0/90) / 3.2 | n/a |
+| es | 85.6% (77/90) / 0.0% (0/90) / 0.4 | 96.7% (87/90) / 0.0% (0/90) / 1117.7 |
+| pt | 84.4% (76/90) / 0.0% (0/90) / 0.5 | 94.4% (85/90) / 0.0% (0/90) / 1120.8 |
 
 **By customer segment**
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| Basic | 88.8% (143/161) / 0.0% (0/161) / 0.8 | 98.3% (114/116) / 0.0% (0/116) / 1117.7 |
-| Plus | 84.1% (58/69) / 0.0% (0/69) / 8.7 | 90.0% (36/40) / 0.0% (0/40) / 1244.8 |
-| Premium | 89.7% (26/29) / 0.0% (0/29) / 0.6 | 94.7% (18/19) / 0.0% (0/19) / 1013.6 |
-| Student | 90.9% (10/11) / 0.0% (0/11) / 0.5 | 80.0% (4/5) / 0.0% (0/5) / 2756.2 |
+| Basic | 88.8% (143/161) / 0.0% (0/161) / 0.5 | 98.3% (114/116) / 0.0% (0/116) / 1117.7 |
+| Plus | 84.1% (58/69) / 0.0% (0/69) / 6.3 | 90.0% (36/40) / 0.0% (0/40) / 1244.8 |
+| Premium | 89.7% (26/29) / 0.0% (0/29) / 0.4 | 94.7% (18/19) / 0.0% (0/19) / 1013.6 |
+| Student | 90.9% (10/11) / 0.0% (0/11) / 0.3 | 80.0% (4/5) / 0.0% (0/5) / 2756.2 |
 
 ## Transcript PDF
 
@@ -253,8 +253,8 @@ The customer's PDF of each conversation (specs/002), built from the same events 
 | Seeded card numbers or codes left unmasked (SC-104) | 25.0% (3/12) | 25.0% (3/12) | 25.0% (3/12) |
 | Original PDFs that verify (SC-107) | 100.0% (270/270) | 100.0% (270/270) | 100.0% (270/270) |
 | Tampered or re-saved copies rejected (SC-107) | 100.0% (1080/1080) | 100.0% (1080/1080) | 100.0% (1080/1080) |
-| Time per PDF, p50 (ms) | 154.9 | 137.6 | 128.5 |
-| Time per PDF, p95 (ms, SC-101: under 5000) | 270.1 | 234.5 | 213.6 |
+| Time per PDF, p50 (ms) | 77.3 | 74.3 | 74.2 |
+| Time per PDF, p95 (ms, SC-101: under 5000) | 136.9 | 131.2 | 130.1 |
 
 - **Complete**: every assistant message, statement label and source, candidate, verdict, and case number appears in the PDF text in order. Text extraction is used as a measurement only; verification never relies on it.
 - **Internal data**: case types, priority, risk, and compliance terms, and any customer ID in what the assistant said or in the header.

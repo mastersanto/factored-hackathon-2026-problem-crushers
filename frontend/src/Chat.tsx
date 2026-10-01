@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { downloadTranscript, HttpError, type ChatEvent } from './api'
+import { downloadTranscript, HttpError, type ChatEvent, type Lang } from './api'
 import { CandidateList } from './components/CandidateList'
 import { CaseCard } from './components/CaseCard'
 import { Statements } from './components/Statements'
@@ -24,7 +24,7 @@ interface Props {
 export function Chat({ sessionId, conversationRef, firstName, country, suggestions, onChangeCustomer }: Props) {
   // Every fixed text follows the app language, which follows the language the customer writes in (specs/004).
   const { lang, setLang } = useLanguage()
-  const { turns, busy, replies, completed, send } = useChat(sessionId, lang, setLang)
+  const { turns, busy, replies, completed, send, announcement } = useChat(sessionId, lang, setLang)
   const t = TEXT[lang]
   const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
   const [pdfExpired, setPdfExpired] = useState(false)
@@ -86,7 +86,7 @@ export function Chat({ sessionId, conversationRef, firstName, country, suggestio
           <div className="log" role="log" aria-live="polite" aria-label={t.aria.messages}>
             <div className="intro"><p>{t.intro(firstName)}</p><p>{t.languages}</p></div>
             {turns.map((turn, i) => (
-              <TurnView key={i} turn={turn} next={turns[i + 1]} country={country} busy={busy} onPick={(v) => submit(v)} />
+              <TurnView key={`${i}-${turn.lang}`} turn={turn} next={turns[i + 1]} country={country} busy={busy} uiLang={lang} onPick={(v) => submit(v)} />
             ))}
             {busy && (
               <div className="typing">
@@ -95,6 +95,7 @@ export function Chat({ sessionId, conversationRef, firstName, country, suggestio
               </div>
             )}
             <div ref={end} />
+            <p className="sr-only" role="status">{announcement}</p>
           </div>
 
           {!ended && (replies
@@ -127,18 +128,11 @@ export function Chat({ sessionId, conversationRef, firstName, country, suggestio
 
 /** One turn. Assistant events are shown in the order the server streamed them; a verdict wraps the message that
  *  follows it, and a charge list shows which option the customer picked next. */
-function TurnView({ turn, next, country, busy, onPick }:
-  { turn: Turn; next: Turn | undefined; country: string; busy: boolean; onPick: (v: string) => void }) {
+function TurnView({ turn, next, country, busy, uiLang, onPick }:
+  { turn: Turn; next: Turn | undefined; country: string; busy: boolean; uiLang: Lang; onPick: (v: string) => void }) {
   const t = TEXT[turn.lang]
   const time = formatTime(turn.at, country)
-  if (turn.role === 'customer') {
-    return (
-      <div className="msg customer" lang={turn.lang}>
-        <div className="bubble">{turn.text}</div>
-        <span className="msg-time">{time}</span>
-      </div>
-    )
-  }
+  if (turn.role === 'customer') return <CustomerTurn turn={turn} time={time} uiLang={uiLang} />
   const blocks: ReactNode[] = []
   const events = turn.events
   for (let i = 0; i < events.length; i++) {
@@ -183,6 +177,29 @@ function TurnView({ turn, next, country, busy, onPick }:
         {blocks}
         {done && <span className="msg-time">{time} · {t.assistant}</span>}
       </div>
+    </div>
+  )
+}
+
+/** A customer message. Re-shown in another language it is a marked translation, with the customer's own words one
+ *  tap away; without a usable translation it is shown as written, with a note (specs/004, FR-422). */
+function CustomerTurn({ turn, time, uiLang }: { turn: Turn; time: string; uiLang: Lang }) {
+  const t = TEXT[uiLang].reshow
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="msg customer" lang={turn.lang}>
+      <div className="bubble">{turn.text}</div>
+      {turn.translated && turn.original && (
+        <div className="translation-note" lang={uiLang}>
+          <span className="translated-mark"><Icon name="translate" size={14} />{t.translated}</span>
+          <button type="button" className="link-btn" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            {open ? t.hideOriginal : t.showOriginal}
+          </button>
+        </div>
+      )}
+      {turn.translated && turn.original && open && <div className="bubble original" lang={turn.original.lang}>{turn.original.text}</div>}
+      {turn.translationMissing && <span className="translation-note muted small" lang={uiLang}>{t.noTranslation}</span>}
+      <span className="msg-time">{time}</span>
     </div>
   )
 }

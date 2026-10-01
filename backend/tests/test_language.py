@@ -357,3 +357,108 @@ def test_the_suite_never_calls_a_model():
     """tests/conftest.py forces rules mode before app.config is imported; if it ever stops, this fails."""
     from app.config import settings
     assert not settings.llm_enabled and api.llm is None and api.engine.llm is None
+
+
+# ---- T038 (US5): re-showing the conversation in another language ------------------------------------------
+def _claim_path_es():
+    sid, d = session("México, debit card, last 48 hours")
+    say(sid, charge(d)); say(sid, "No fui yo"); say(sid, "Tengo la tarjeta y no compartí ningún código")
+    return sid, d
+
+
+def _assistant_facts(view):
+    """What must never change across languages: every statement's basis and source, verdicts, and case ids."""
+    out = []
+    for t in view["turns"]:
+        for e in t.get("events", []):
+            if e["type"] == "message":
+                out.append([(st["basis"], st["source"]) for st in e["statements"]])
+            elif e["type"] in ("verdict", "handoff"):
+                out.append(e.get("verdict") or e["handoff"]["case_id"])
+            elif e["type"] == "candidates":
+                out.append([(c["option"], c["status"]) for c in e["items"]])
+    return out
+
+
+def test_reshow_keeps_every_fact_and_returns_to_the_originals():
+    sid, d = _claim_path_es()
+    entries = api.sessions.get(sid).transcript.entries
+    originals = [e["text"] for e in entries if e["kind"] == "message"]
+    views = {}
+    for lang in ("pt", "en", "es"):
+        r = client.post("/api/session/language", json={"session_id": sid, "lang": lang})
+        assert r.status_code == 200
+        views[lang] = r.json()
+        assert views[lang]["lang"] == lang and api.sessions.get(sid).lang == lang
+    assert _assistant_facts(views["pt"]) == _assistant_facts(views["en"]) == _assistant_facts(views["es"])
+    shown_es = [e["text"] for t in views["es"]["turns"] for e in t.get("events", []) if e["type"] == "message"]
+    assert shown_es == originals                                             # FR-423: back to exactly what was sent
+    en = " ".join(e["text"] for t in views["en"]["turns"] for e in t.get("events", []) if e["type"] == "message")
+    assert "The charge is for" in en and "case CASO-" in en and d["hint"]["merchant"] in en
+    pt = " ".join(e["text"] for t in views["pt"]["turns"] for e in t.get("events", []) if e["type"] == "message")
+    assert "A cobrança é de" in pt and "protocolo CASO-" in pt
+    assert views["en"]["stage"] == "closed" and views["en"]["suggestions"] is None
+
+
+def test_reshow_calls_no_tool_and_reads_no_record(monkeypatch):
+    sid, _ = _claim_path_es()
+    calls = []
+    real = api.store.query
+    monkeypatch.setattr(api.store, "query", lambda *a, **k: calls.append(a) or real(*a, **k))
+    for lang in ("en", "pt"):
+        assert client.post("/api/session/language", json={"session_id": sid, "lang": lang}).status_code == 200
+    assert client.get("/api/session/conversation", params={"session_id": sid}).status_code == 200
+    assert calls == []
+
+
+def test_rules_mode_shows_customer_words_as_written_with_a_note():
+    sid, _ = _claim_path_es()
+    view = client.post("/api/session/language", json={"session_id": sid, "lang": "en"}).json()
+    customer = [t for t in view["turns"] if t["role"] == "customer"]
+    assert customer and all(t["translation_missing"] and t["lang"] == "es" and "translated" not in t for t in customer)
+
+
+class FakeTranslator:
+    """Translates by prefixing, or drops the numbers when told to, and counts its calls."""
+
+    def __init__(self, drop_numbers=False):
+        self.calls, self.drop = 0, drop_numbers
+
+    def translate(self, text, target):
+        self.calls += 1
+        return "".join(c for c in text if not c.isdigit()) if self.drop else f"[{target}] {text}"
+
+
+def test_customer_translation_is_marked_checked_and_cached():
+    from app.language.translator import conversation_view
+    sid, _ = _claim_path_es()
+    s = api.sessions.get(sid)
+    good = FakeTranslator()
+    view = conversation_view(s, "en", good)
+    first = next(t for t in view["turns"] if t["role"] == "customer")
+    assert first["translated"] and first["text"].startswith("[en] ") and first["original"]["lang"] == "es"
+    n = good.calls
+    conversation_view(s, "en", good)
+    assert good.calls == n                                                   # cached: a second switch costs nothing
+    bad = FakeTranslator(drop_numbers=True)
+    view = conversation_view(s, "pt", bad)
+    first = next(t for t in view["turns"] if t["role"] == "customer")
+    assert first.get("translation_missing") and "translated" not in first   # a number was dropped: not shown
+
+
+def test_language_endpoints_refuse_bad_requests():
+    sid, _ = session("Argentina, card purchase")
+    assert client.post("/api/session/language", json={"session_id": "nope", "lang": "en"}).status_code == 401
+    assert client.get("/api/session/conversation", params={"session_id": "nope"}).status_code == 401
+    assert client.post("/api/session/language", json={"session_id": sid, "lang": "fr"}).status_code == 422
+
+
+def test_reshow_of_twenty_messages_is_fast():
+    import time
+    sid, d = session("Colombia, card purchase")
+    for _ in range(10):
+        say(sid, charge(d)); say(sid, "Sí, fui yo")
+    t0 = time.perf_counter()
+    for lang in ("en", "pt", "es"):
+        client.post("/api/session/language", json={"session_id": sid, "lang": lang})
+    assert (time.perf_counter() - t0) / 3 < 2.0                               # SC-407

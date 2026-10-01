@@ -38,9 +38,9 @@ Sets the session's language (the switcher) and returns the whole conversation in
   "stage": "confirm",
   "suggestions": ["Sim, fui eu", "Não fui eu"],
   "turns": [
-    {"role": "customer", "text": "Não reconheço…", "lang": "pt", "at": "2026-09-30T14:05:11-05:00",
+    {"role": "customer", "text": "Não reconheço…", "lang": "pt", "at": 1759259111000,
      "original": {"text": "No reconozco un cargo de 181,46 en Óptica…", "lang": "es"}, "translated": true},
-    {"role": "assistant", "lang": "pt", "at": "2026-09-30T14:05:13-05:00",
+    {"role": "assistant", "lang": "pt", "at": 1759259113000,
      "events": [{"type": "message", "text": "A cobrança é de 181,46 USD…", "statements": [{"text": "…", "basis": "known", "source": "transaction:TX-…"}]}]}
   ]
 }
@@ -52,8 +52,9 @@ Sets the session's language (the switcher) and returns the whole conversation in
   - `translation_missing: true` with the original text when none is available;
   - neither when the message was written in `lang`.
 - **Assistant turns**:
-  - `events` contains only `message`, `candidates`, `verdict`, `handoff`, and customer-visible `error` events. Never `step` events, `key`, or `params`.
+  - `events` contains only `message`, `candidates`, `verdict`, `handoff`, customer-visible `error` events, and a closing `done` marker (as when the reply was streamed). Never `step` events, `key`, `params`, or `raw`.
   - Each statement's `basis` and `source` are identical to what was first sent (FR-420).
+- **`at`**: milliseconds since the epoch, as the chat already uses (as built, T036).
 
 | Status | When |
 |---|---|

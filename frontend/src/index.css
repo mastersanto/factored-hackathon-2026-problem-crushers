@@ -191,6 +191,10 @@ button:disabled { cursor: not-allowed; }
 .msg-time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
 .msg.customer { align-self: flex-end; align-items: flex-end; max-width: min(520px, 85%); }
 .msg.customer .bubble { background: var(--bubble-customer); color: var(--bubble-customer-text); border-radius: var(--radius); padding: 12px 16px; }
+/* Re-shown in another language (specs/004, US5): a marked translation, the original one tap away. */
+.translation-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 8px; font-size: 13px; color: var(--muted); }
+.translated-mark { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+.msg.customer .bubble.original { background: var(--surface-2); color: var(--text); border: 1px dashed var(--border-strong); }
 .msg.assistant { flex-direction: row; gap: 12px; align-items: flex-start; max-width: 680px; }
 .msg.assistant .avatar { width: 32px; height: 32px; }
 .msg-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1; }

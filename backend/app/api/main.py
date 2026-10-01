@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.data.store import get_store
+from app.language.translator import conversation_view
 from app.llm.claude import make_llm
 from app.tools import banking
 from app.transcript import fingerprint as transcript_keys
@@ -178,6 +179,34 @@ def chat(req: ChatRequest):
             s.transcript.commit()
 
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+class LanguageRequest(BaseModel):
+    session_id: str
+    lang: Literal["en", "es", "pt"]
+
+
+def _live_session(session_id: str):
+    s = sessions.get(session_id)
+    if not s or s.expired():
+        raise HTTPException(401, "invalid session")
+    return s
+
+
+@app.post("/api/session/language")
+def set_language(req: LanguageRequest):
+    """The switcher (specs/004, FR-405): the session's language becomes `lang`, and the whole conversation comes
+    back in it. Re-renders stored entries only: no tool is called and no record is read."""
+    s = _live_session(req.session_id)
+    s.lang = req.lang
+    return conversation_view(s, s.lang, llm)
+
+
+@app.get("/api/session/conversation")
+def get_conversation(session_id: str):
+    """The whole conversation in the session's current language, after a reply switched it (specs/004, FR-407)."""
+    s = _live_session(session_id)
+    return conversation_view(s, s.lang, llm)
 
 
 @app.post("/api/transcript")

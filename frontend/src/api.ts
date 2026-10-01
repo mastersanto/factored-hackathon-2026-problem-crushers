@@ -47,6 +47,21 @@ export interface DemoCustomer {
   hint: Record<string, string | number | null>
 }
 
+/** The whole conversation in one language (specs/004, contracts/http-api.md). */
+export interface ViewTurn {
+  role: 'customer' | 'assistant'
+  lang: Lang
+  at: number
+  text?: string
+  events?: ChatEvent[]
+  /** A customer message shown as a marked translation; the original is kept. */
+  translated?: boolean
+  original?: { text: string; lang: Lang }
+  /** No usable translation: the original is shown, with a note. */
+  translation_missing?: boolean
+}
+export interface ConversationView { lang: Lang; stage: string; suggestions: string[] | null; turns: ViewTurn[] }
+
 export class HttpError extends Error {
   status: number
   constructor(status: number, message: string) { super(message); this.status = status }
@@ -61,6 +76,11 @@ export const api = {
   health: () => fetch('/api/health').then(json<{ as_of: string; llm_enabled: boolean }>),
   demoCustomers: () => fetch('/api/demo/customers').then(json<DemoCustomer[]>),
   handoffs: () => fetch('/api/handoffs').then(json<Handoff[]>),
+  setSessionLanguage: (session_id: string, lang: Lang) =>
+    fetch('/api/session/language', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id, lang }) })
+      .then(json<ConversationView>),
+  getConversation: (session_id: string) =>
+    fetch(`/api/session/conversation?session_id=${encodeURIComponent(session_id)}`).then(json<ConversationView>),
   startSession: (customer_id: string, lang: Lang) =>
     fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id, lang }) })
       .then(json<{ session_id: string; conversation_ref: string; lang: Lang; customer: { first_name: string; country: string } }>),

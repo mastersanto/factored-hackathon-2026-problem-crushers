@@ -223,7 +223,7 @@ A task is checked off only when its gates pass.
 
 **Independent Test**: hold a Spanish conversation to a filed claim, then write in Portuguese: every earlier message is shown in Portuguese with the same amounts, sources, and case number (SC-405).
 
-- [ ] T035 [US5] Add `Claude.translate(text, target_lang) -> str | None` to `backend/app/llm/claude.py`:
+- [X] T035 [US5] Add `Claude.translate(text, target_lang) -> str | None` to `backend/app/llm/claude.py`:
   - Claude Haiku 4.5 (`settings.understand_model`);
   - the text passed as data inside `<customer_message>` tags, with the instruction "translate only; add nothing";
   - logged in `usage_log`, and None when `over_budget()`.
@@ -232,7 +232,7 @@ A task is checked off only when its gates pass.
   - accept the result only if the set of numbers is identical and its length is between 0.5× and 2× the original (research R7);
   - cache it in `Session.translations[(entry_index, target)]`, which is new on `Session` in `engine.py` ("`None` records 'no usable translation', so it is not retried");
   - with no model, return None.
-- [ ] T036 [US5] Add `conversation_view(session, lang, llm) -> dict` to `backend/app/language/translator.py`, built from `session.transcript.entries`, shaped exactly as in contracts/http-api.md.
+- [X] T036 [US5] Add `conversation_view(session, lang, llm) -> dict` to `backend/app/language/translator.py`, built from `session.transcript.entries`, shaped exactly as in contracts/http-api.md.
   - **Customer turns**:
     - the original when `entry.lang == lang`;
     - else the translation, with `translated: true` and `original: {text, lang}`;
@@ -243,30 +243,30 @@ A task is checked off only when its gates pass.
   - **Notices**: rebuilt from their code.
   - **Also returned**: `stage` and `suggestions` (`QUICK_REPLIES[stage][lang]`).
   - Never `step` events, `key`, `params`, or `raw`.
-- [ ] T037 [US5] In `backend/app/api/main.py`, add:
+- [X] T037 [US5] In `backend/app/api/main.py`, add:
   - `POST /api/session/language` (body `{session_id, lang}`): sets `s.lang` and returns `conversation_view`; 401 for an unknown or expired session; 422 for a `lang` outside en, es, pt;
   - `GET /api/session/conversation?session_id=…`: the view in `s.lang`.
 
   Neither calls a tool or reads the store.
-- [ ] T038 [US5] Add tests to `backend/tests/test_language.py`:
+- [X] T038 [US5] Add tests to `backend/tests/test_language.py`:
   - a Spanish claim path, then views in pt, en, and es: identical `basis`, `source`, verdicts, and case ids in every language, and the es view's assistant texts equal the originals (FR-420, FR-423);
   - the store's query count is unchanged across the views (no tool call);
   - in rules mode, customer turns have `translation_missing: true`;
   - a fake model whose translation drops a number gives `translation_missing`, and a second view makes no new call (cache);
   - 401 and 422;
   - a 20-message conversation is re-shown in under 2 s in rules mode (SC-407).
-- [ ] T039 [US5] In `frontend/src/api.ts`, add `setSessionLanguage(sessionId, lang)` and `getConversation(sessionId)`. In `frontend/src/useChat.ts`:
+- [X] T039 [US5] In `frontend/src/api.ts`, add `setSessionLanguage(sessionId, lang)` and `getConversation(sessionId)`. In `frontend/src/useChat.ts`:
   - add `replaceTurns(view)`, which maps the view to `Turn[]`, keeping `at` from the server's ISO time;
   - when `done.lang` differs from the app language (T033), fetch `getConversation` once and replace the turns in a single update;
   - keep the newest message in view;
   - announce "Conversation shown in {language}" once, through the existing status region, in the new language (contracts/ui.md).
-- [ ] T040 [US5] In `TurnView` in `frontend/src/Chat.tsx`, for a translated customer turn:
+- [X] T040 [US5] In `TurnView` in `frontend/src/Chat.tsx`, for a translated customer turn:
   - show the translation with a mark (`TEXT[lang].translated`);
   - add a toggle button (`showOriginal` / `hideOriginal`), keyboard-operable, with a spoken name, that reveals the original in an element with `lang={original.lang}`;
   - for `translation_missing`, show the original with `TEXT[lang].noTranslation`.
 
   Add these keys to all three sets in `frontend/src/i18n.ts`, and the styles in `frontend/src/index.css`, meeting the specs/003 contrast and tap-target rules.
-- [ ] T041 [US5] Add `frontend/e2e/reshow.spec.ts` (rules mode):
+- [X] T041 [US5] Add `frontend/e2e/reshow.spec.ts` (rules mode):
   - run the Spanish claim path, then send a Portuguese message;
   - every earlier assistant message is shown in Portuguese, with the same source references and case number as before;
   - customer messages show the original with the "no translation" note;
