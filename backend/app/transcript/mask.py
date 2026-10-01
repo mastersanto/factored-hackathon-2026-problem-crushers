@@ -7,12 +7,15 @@ import re
 
 # 13 to 19 digits, optionally grouped by single spaces or dashes: a full card number.
 _CARD = re.compile(r"(?<![\d.,])\d(?:[ -]?\d){12,18}(?![\d.,])")
-# Words that name a secret, in Spanish and Portuguese.
-_KW = r"(?:c[oó]digo|clave|contrase[nñ]a|pin|nip|otp|token|senha)"
+# Words that name a secret, in Spanish, Portuguese, and English (specs/004: the evaluation found English codes left
+# unmasked, SC-104).
+_KW = r"(?:c[oó]digo|clave|contrase[nñ]a|pin|nip|otp|token|senha|codes?|passcode|password|cvv)"
 _CODE = r"\d{4,8}"
 # A code within four words after the keyword ("el código de verificação é 55123"), or before it ("482913 era el código").
 _AFTER = re.compile(rf"(\b{_KW}\b(?:\W+[^\W\d]+){{0,4}}?\W+){_CODE}(?![\d.,])", re.IGNORECASE)
 _BEFORE = re.compile(rf"(?<![\d.,]){_CODE}((?:\W+[^\W\d]+){{0,3}}?\W+{_KW}\b)", re.IGNORECASE)
+# A card's security code is 3 or 4 digits, shorter than other codes: masked only right after its own name.
+_CVV = re.compile(r"(\b(?:cvv|cvc|cvv2)\b\W+(?:[^\W\d]+\W+){0,2}?)\d{3,4}(?![\d.,])", re.IGNORECASE)
 
 DOTS = "••••"
 
@@ -23,4 +26,5 @@ def mask(text: str) -> tuple[str, bool]:
     out = _CARD.sub(lambda m: f"{DOTS} {re.sub(r'[ -]', '', m.group())[-4:]}", text)
     out = _AFTER.sub(lambda m: m.group(1) + DOTS, out)
     out = _BEFORE.sub(lambda m: DOTS + m.group(1), out)
+    out = _CVV.sub(lambda m: m.group(1) + DOTS, out)
     return out, out != text

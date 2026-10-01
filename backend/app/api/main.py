@@ -22,7 +22,8 @@ from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.data.store import get_store
-from app.language.translator import conversation_view
+from app.language.translator import acceptable_translation, conversation_view
+from app.transcript.mask import mask
 from app.llm.claude import make_llm
 from app.tools import banking
 from app.transcript import fingerprint as transcript_keys
@@ -223,8 +224,12 @@ def transcript_pdf(req: TranscriptRequest, request: Request):
     _limit(_transcript_log, request, settings.transcript_requests_per_ip_hour, "too many requests; try again later")
     if not s.transcript.has_turns:
         raise HTTPException(409, "nothing to export yet")
+    # In the session's language (specs/004, FR-424), with the translations already made for display: producing the
+    # PDF never calls a model (specs/002, FR-112).
+    translations = {i: text for (i, lang), text in s.translations.items() if lang == s.lang and text}
     snapshot = s.transcript.snapshot(conversation_ref=s.conversation_ref, first_name=s.customer.first_name,
-                                     country=s.customer.country, generated_at=datetime.now(timezone.utc))
+                                     country=s.customer.country, generated_at=datetime.now(timezone.utc),
+                                     lang=s.lang, translations=translations)
     signed, fp = sign(snapshot)
     pdf = render(signed)
     transcripts.add(signed, fp)
@@ -247,9 +252,38 @@ async def verify_transcript(request: Request, file: UploadFile = File(...)):
     return verify(data, transcripts)
 
 
+# Specialist-view translations of the customer's words, by (case, field, language); in memory, never written to the
+# queue file (specs/004, FR-427). None records "no usable translation".
+_handoff_translations: dict[tuple[str, str, str], str | None] = {}
+
+
+def _translate_field(case_id: str, field: str, text: str, lang: str) -> str | None:
+    key = (case_id, field, lang)
+    if key not in _handoff_translations:
+        if llm is None:
+            return None
+        masked, _ = mask(text)  # only the masked words go to the model (constitution IV)
+        out = llm.translate(masked, lang)
+        _handoff_translations[key] = out if acceptable_translation(masked, out) else None
+    return _handoff_translations[key]
+
+
 @app.get("/api/handoffs")
-def handoffs():
-    return list(reversed(engine.handoffs.items))
+def handoffs(lang: Literal["en", "es", "pt"] | None = None):
+    """The specialist queue. With `lang`, each case written in another language also carries a marked translation
+    of the customer's words; the verified facts and IDs are never translated (specs/004, FR-427)."""
+    items = list(reversed(engine.handoffs.items))
+    if not lang:
+        return items
+    out = []
+    for h in items:
+        if h.get("language") and h["language"] != lang:
+            tr = {f: t for f in ("request", "customer_statement") if h.get(f)
+                  for t in [_translate_field(h["case_id"], f, h[f], lang)] if t}
+            if tr:
+                h = {**h, "translations": tr}
+        out.append(h)
+    return out
 
 
 @app.get("/api/metrics")

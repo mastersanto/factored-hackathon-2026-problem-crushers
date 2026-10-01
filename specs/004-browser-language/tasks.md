@@ -306,19 +306,19 @@ A task is checked off only when its gates pass.
 
 **Goal**: the record follows the re-show rules. PDFs issued before this feature keep verifying.
 
-- [ ] T045 [US5] Create `backend/app/transcript/render_v1.py`: a frozen copy of the current `render.py` (`_Doc`, `render`, `file_name`), with its own frozen copy of the current Spanish and Portuguese `LABELS`. Point the T001 test at `render_v1.render`. It must give the pinned hash.
-- [ ] T046 [US5] Make `snapshot(lang, translations)` in `backend/app/transcript/record.py` produce schema `2`, with renderer `fpdf2-2.8.9/r2`, in the session's language (data-model: Transcript snapshot, schema 2):
+- [X] T045 [US5] Create `backend/app/transcript/render_v1.py`: a frozen copy of the current `render.py` (`_Doc`, `render`, `file_name`), with its own frozen copy of the current Spanish and Portuguese `LABELS`. Point the T001 test at `render_v1.render`. It must give the pinned hash.
+- [X] T046 [US5] Make `snapshot(lang, translations)` in `backend/app/transcript/record.py` produce schema `2`, with renderer `fpdf2-2.8.9/r2`, in the session's language (data-model: Transcript snapshot, schema 2):
   - customer entries carry `original` and `original_lang`, and, when `original_lang != lang`, `translation` or `translation_missing: true`;
   - message entries carry text and statements in `lang`, without `key` or `params`.
-- [ ] T047 [US5] In `backend/app/transcript/labels.py`, add the `en` labels: title "Copy of the conversation", authors "You" and "Assistant", bases "verified", "estimate", and "rule", the verdicts, handoff, notice (no promise: the test runs it through the same check), page, check code, and `file_prefix` "conversation". Add `translated` and `no_translation` to all three languages.
+- [X] T047 [US5] In `backend/app/transcript/labels.py`, add the `en` labels: title "Copy of the conversation", authors "You" and "Assistant", bases "verified", "estimate", and "rule", the verdicts, handoff, notice (no promise: the test runs it through the same check), page, check code, and `file_prefix` "conversation". Add `translated` and `no_translation` to all three languages.
 
   In `backend/app/transcript/render.py`, print a customer translation beneath the original in grey, marked as a translation.
-- [ ] T048 [US5] In `backend/app/transcript/verify.py`, choose the renderer by `(schema, renderer)`:
+- [X] T048 [US5] In `backend/app/transcript/verify.py`, choose the renderer by `(schema, renderer)`:
   - `(1, "fpdf2-2.8.9/r1")` → `render_v1.render`;
   - `(2, "fpdf2-2.8.9/r2")` → `render.render`;
   - anything else → `unknown_version`.
-- [ ] T049 [US5] In `transcript_pdf` in `backend/app/api/main.py`, build the snapshot in `s.lang`. First fill the missing customer translations through `translate_customer`, within the spend cap. Use the language-specific file name.
-- [ ] T050 [US5] Add tests to `backend/tests/test_transcript.py`:
+- [X] T049 [US5] In `transcript_pdf` in `backend/app/api/main.py`, build the snapshot in `s.lang`. First fill the missing customer translations through `translate_customer`, within the spend cap. Use the language-specific file name.
+- [X] T050 [US5] Add tests to `backend/tests/test_transcript.py`:
   - a schema-1 r1 PDF (the T001 snapshot) verifies as a match through `verify()`;
   - a PDF in each of en, es, and pt verifies as a match;
   - one edited byte gives altered;
@@ -326,7 +326,7 @@ A task is checked off only when its gates pass.
   - the English notice passes the no-promise check.
 
   Update `backend/app/eval/transcript_check.py` for schema 2.
-- [ ] T051 [US5] In `backend/app/api/main.py`, make `GET /api/handoffs` accept an optional `lang`. For cases whose `language` differs, add `translations: {request?, customer_statement?}` from `translate_customer` rules, cached per `(case_id, field, lang)` in memory and never written to the queue file. In `frontend/src/AgentQueue.tsx`:
+- [X] T051 [US5] In `backend/app/api/main.py`, make `GET /api/handoffs` accept an optional `lang`. For cases whose `language` differs, add `translations: {request?, customer_statement?}` from `translate_customer` rules, cached per `(case_id, field, lang)` in memory and never written to the queue file. In `frontend/src/AgentQueue.tsx`:
   - send the app language;
   - show each translation beneath the customer's words, marked;
   - leave facts and IDs untranslated.
@@ -339,13 +339,13 @@ A task is checked off only when its gates pass.
 
 ## Phase 9: Polish and evaluation (increment 3)
 
-- [ ] T052 Add the category `language_switch` to `CATEGORIES` and to `generate()` in `backend/app/eval/cases.py`, with 6 cases per set:
+- [X] T052 Add the category `language_switch` to `CATEGORIES` and to `generate()` in `backend/app/eval/cases.py`, with 6 cases per set:
   - describe a charge in one language, answer "was it you?" in another, then give a statement;
   - expected: the same transaction, a handoff, and every earlier assistant message re-rendered with the same sources;
   - **parity**: 6 transactions, each run through describe, claim, and statement in all three languages.
 
   In `backend/app/eval/run.py`, grade switch cases with `conversation_view` (sources identical in every language), and parity cases by comparing the tools called, the transaction, the decision, and the handoff case type (SC-404, SC-405). Add both to `report.py`.
-- [ ] T053 Run `make eval` and regenerate `docs/evaluation.md`. Check:
+- [X] T053 Run `make eval` and regenerate `docs/evaluation.md`. Check:
   - Spanish and Portuguese are no worse than before T029;
   - English has 0 unsafe outcomes, within 5 points of Spanish;
   - `language_switch` is at 100%;

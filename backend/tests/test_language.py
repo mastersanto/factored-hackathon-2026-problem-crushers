@@ -462,3 +462,30 @@ def test_reshow_of_twenty_messages_is_fast():
     for lang in ("en", "pt", "es"):
         client.post("/api/session/language", json={"session_id": sid, "lang": lang})
     assert (time.perf_counter() - t0) / 3 < 2.0                               # SC-407
+
+
+# ---- T051: the specialist sees the customer's words with a marked translation -----------------------------
+def test_specialist_translations_with_a_model_and_in_rules_mode(monkeypatch):
+    sid, d = session("Colombia, card purchase")
+    say(sid, charge(d)); say(sid, "No fui yo")
+    ev = say(sid, "Tengo la tarjeta 4111 1111 1111 1111 y no compartí ningún código")
+    case = next(e["handoff"]["case_id"] for e in ev if e["type"] == "handoff")
+
+    def card(items):
+        return next(h for h in items if h["case_id"] == case)
+
+    api._handoff_translations.clear()
+    assert "translations" not in card(client.get("/api/handoffs", params={"lang": "en"}).json())   # rules mode
+    fake = FakeTranslator()
+    sent = []
+    fake.translate = lambda text, target: sent.append(text) or f"[{target}] {text}"
+    monkeypatch.setattr(api, "llm", fake)
+    h = card(client.get("/api/handoffs", params={"lang": "en"}).json())
+    assert h["translations"]["customer_statement"].startswith("[en] ") and h["customer_statement"].startswith("Tengo")
+    assert all("4111 1111" not in t for t in sent)                                    # masked before the model
+    assert "translations" not in card(client.get("/api/handoffs", params={"lang": "es"}).json())  # same language
+    n = len(sent)
+    client.get("/api/handoffs", params={"lang": "en"})
+    assert len(sent) == n                                                             # cached
+    assert "translations" not in card(client.get("/api/handoffs").json())             # without lang: as before
+    api._handoff_translations.clear()

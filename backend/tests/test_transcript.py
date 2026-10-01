@@ -441,6 +441,70 @@ def _r1_signed() -> dict:
 
 def test_r1_render_is_frozen():
     import hashlib
-    from app.transcript.render import render
+    from app.transcript.render_v1 import render
     digest = hashlib.sha256(render(_r1_signed())).hexdigest()
     assert digest == R1_SHA256
+
+
+# ---- schema 2 (specs/004, T050): the PDF in the session's language; r1 PDFs still verify ---------------
+def test_a_pdf_issued_before_004_still_verifies(tmp_path):
+    from app.transcript.render_v1 import render as render_r1
+    signed, _ = sign(R1_SNAPSHOT)                      # an r1 transcript, signed with the bank's key
+    assert verify(render_r1(signed), FingerprintRegister(tmp_path / "t.jsonl"))["result"] == "match"
+
+
+@pytest.mark.parametrize("lang", ["en", "es", "pt"])
+def test_a_pdf_in_each_language_verifies_and_tampers_are_caught(lang, tmp_path):
+    reg = FingerprintRegister(tmp_path / "t.jsonl")
+    rec = TranscriptRecorder()
+    _turn(rec, "No reconozco un cargo", [MSG, {"type": "done", "lang": "es"}])
+    snap = rec.snapshot(conversation_ref="CONV-TEST0001", first_name="Ana", country="Colombia",
+                        generated_at=datetime(2026, 10, 1, tzinfo=timezone.utc), lang=lang,
+                        translations={0: "[translated] I don't recognize a charge"} if lang == "en" else {})
+    signed, _ = sign(snap)
+    pdf = render(signed)
+    assert signed["schema"] == 2 and signed["lang"] == lang
+    assert verify(pdf, reg)["result"] == "match"
+    text = _text(pdf)
+    assert LABELS[lang]["title"] in text and "No reconozco un cargo" in text            # the customer's own words
+    customer = signed["entries"][0]
+    if lang == "es":
+        assert customer["original_lang"] == "es" and "translation" not in customer and "translation_missing" not in customer
+    elif lang == "en":
+        assert customer["translation"].startswith("[translated]") and LABELS["en"]["translated"] in text
+    else:
+        assert customer["translation_missing"] and LABELS["pt"]["no_translation"][:30] in text
+    for change in ({"lang": "pt" if lang != "pt" else "es"}, {"entries": [{**customer, "translation": "forged"}, *signed["entries"][1:]]}):
+        assert verify(render({**signed, **change}), reg)["result"] == "altered", change
+
+
+def test_english_pdf_through_the_api_follows_the_session_language():
+    sid, d, body = _session("Argentina, card purchase")
+    _ask_about(sid, d)
+    assert client.post("/api/session/language", json={"session_id": sid, "lang": "en"}).status_code == 200
+    r = _download(sid)
+    assert r.headers["content-disposition"].startswith('attachment; filename="conversation-')
+    text = _text(r.content)
+    assert LABELS["en"]["title"] in text and "The charge is for" in text
+    assert LABELS["en"]["no_translation"][:30] in text                               # rules mode: no translation made
+    assert client.post("/api/transcripts/verify", files={"file": ("c.pdf", r.content, "application/pdf")}).json()["result"] == "match"
+
+
+def test_english_notice_never_promises():
+    notice = LABELS["en"]["notice"].lower()
+    assert not any(p in notice for p in PROMISES)
+    assert "does not decide the claim" in notice and "does not promise any result" in notice
+
+
+def test_mask_codes_near_english_keywords():
+    """Regression for the evaluation's SC-104 finding (specs/004): English codes were left unmasked."""
+    for text in ["yes, I gave them the code 482913", "my PIN is 9876", "the password was 55123", "482913 was the code",
+                 "they asked for the verification code, it was 112233", "I shared my CVV 123 and passcode 445566"]:
+        out, masked = mask(text)
+        assert masked and "••••" in out, text
+        assert not any(c.isdigit() for c in out), (text, out)
+    out, masked = mask("mi CVV es 987 y el cvc 1234")
+    assert masked and not any(c.isdigit() for c in out), out
+    for text in ["I don't recognize a charge of 1,250.00 at Uber", "it was on 12/09 at Rappi", "Yes, it was me"]:
+        out, masked = mask(text)
+        assert out == text and not masked, text

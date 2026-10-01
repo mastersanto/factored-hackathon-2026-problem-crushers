@@ -12,8 +12,9 @@ const PRIORITY_ICON: Record<Handoff['priority'], IconName> = { urgent: 'priority
 
 /** What the human specialist receives: a structured handoff, not a transcript. */
 export function AgentQueue({ onGoToCustomer }: { onGoToCustomer: () => void }) {
-  const t = TEXT[useLanguage().lang].specialist
-  const { data, isLoading, error } = useQuery({ queryKey: ['handoffs'], queryFn: api.handoffs, refetchInterval: 3000 })
+  const { lang } = useLanguage()
+  const t = TEXT[lang].specialist
+  const { data, isLoading, error } = useQuery({ queryKey: ['handoffs', lang], queryFn: () => api.handoffs(lang), refetchInterval: 3000 })
   const items = [...(data ?? [])].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
   return (
     <>
@@ -99,8 +100,12 @@ function VerifyPdf() {
 }
 
 function HandoffCard({ h }: { h: Handoff }) {
-  const t = TEXT[useLanguage().lang].specialist
+  const { lang } = useLanguage()
+  const t = TEXT[lang].specialist
   const f = t.field
+  const translated = (text?: string) => text && (
+    <span className="case-translation" lang={lang}><Icon name="translate" size={14} />{TEXT[lang].reshow.translated}: “{text}”</span>
+  )
   return (
     <article className={`panel case ${h.priority}`} aria-labelledby={`case-${h.case_id}`}>
       <header>
@@ -111,8 +116,8 @@ function HandoffCard({ h }: { h: Handoff }) {
       </header>
       <dl className="case-fields">
         <div><dt>{f.customer}</dt><dd>{h.customer.first_name} · {h.customer.country} · {h.customer.segment} · {h.language.toUpperCase()}</dd></div>
-        {h.request && <div><dt>{f.request}</dt><dd>“{h.request}”</dd></div>}
-        {h.customer_statement && <div><dt>{f.statement}</dt><dd>“{h.customer_statement}”</dd></div>}
+        {h.request && <div><dt>{f.request}</dt><dd><span lang={h.language}>“{h.request}”</span>{translated(h.translations?.request)}</dd></div>}
+        {h.customer_statement && <div><dt>{f.statement}</dt><dd><span lang={h.language}>“{h.customer_statement}”</span>{translated(h.translations?.customer_statement)}</dd></div>}
         {h.verified_facts && <div><dt>{f.facts}</dt><dd><Facts facts={h.verified_facts} label={f.facts} /></dd></div>}
         {h.card && <div><dt>{f.product}</dt><dd>{String(h.card.product_type)} ···{String(h.card.last4)} · {String(h.card.product_status)}</dd></div>}
         <div><dt>{f.shared}</dt><dd>

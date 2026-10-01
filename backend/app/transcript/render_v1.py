@@ -1,4 +1,9 @@
-"""Deterministic PDF of a signed transcript (specs/002 research §3).
+"""FROZEN: the r1 renderer, schema 1 (specs/002), kept byte for byte so PDFs issued before specs/004 keep verifying.
+
+Never edit this file or its labels: verification re-renders an r1 PDF with it and compares every byte. The
+live renderer is render.py (r2). What follows is the original r1 docstring.
+
+Deterministic PDF of a signed transcript (specs/002 research §3).
 
 The same signed transcript always renders to the same bytes: the creation date is the transcript's
 `generated_at`, the producer is fixed, and fpdf2 is pinned. Verification relies on this: it re-renders
@@ -13,7 +18,52 @@ from pathlib import Path
 from fpdf import FPDF
 
 from app.transcript.fingerprint import embedded_json
-from app.transcript.labels import labels
+
+LABELS_V1: dict[str, dict] = {
+    "es": {
+        "title": "Copia de la conversación",
+        "service": "Explica este cargo · LATAM Bank",
+        "customer": "Cliente", "country": "País", "conversation": "Conversación", "cases": "Caso",
+        "generated": "Generado",
+        "customer_author": "Usted", "assistant_author": "Asistente",
+        "basis": {"known": "verificado", "guessed": "estimación", "rule": "política"},
+        "pending": "pendiente",
+        "verdict": {"scam_asks_secret": "Estafa: pidió un código", "no_record": "Sin registro del banco",
+                    "bank_contact": "Contacto real del banco"},
+        "handoff": "Caso {case} enviado a un especialista",
+        "notice": ("Esta es una copia de su conversación con el asistente de LATAM Bank, para sus registros. "
+                   "Este documento no decide el reclamo y no promete ningún resultado, reembolso ni aprobación."),
+        "keep_original": "Conserve el archivo original: solo el original se puede verificar con el código de verificación.",
+        "masked": "Por su seguridad, se ocultaron los números de tarjeta y los códigos que usted escribió (••••).",
+        "page": "Página {page} de {pages}",
+        "check_code": "Código de verificación",
+        "file_prefix": "conversacion",
+    },
+    "pt": {
+        "title": "Cópia da conversa",
+        "service": "Explica este cargo · LATAM Bank",
+        "customer": "Cliente", "country": "País", "conversation": "Conversa", "cases": "Caso",
+        "generated": "Gerado",
+        "customer_author": "Você", "assistant_author": "Assistente",
+        "basis": {"known": "verificado", "guessed": "estimativa", "rule": "política"},
+        "pending": "pendente",
+        "verdict": {"scam_asks_secret": "Golpe: pediu um código", "no_record": "Sem registro do banco",
+                    "bank_contact": "Contato real do banco"},
+        "handoff": "Caso {case} enviado a um especialista",
+        "notice": ("Esta é uma cópia da sua conversa com o assistente do LATAM Bank, para os seus registros. "
+                   "Este documento não decide a reclamação e não promete nenhum resultado, reembolso ou aprovação."),
+        "keep_original": "Conserve o arquivo original: só o original pode ser verificado com o código de verificação.",
+        "masked": "Para sua segurança, os números de cartão e os códigos que você digitou foram ocultados (••••).",
+        "page": "Página {page} de {pages}",
+        "check_code": "Código de verificação",
+        "file_prefix": "conversa",
+    },
+}
+
+
+def labels(lang: str) -> dict:
+    return LABELS_V1.get(lang, LABELS_V1["es"])
+
 
 FONT_DIR = Path(__file__).parent / "fonts"
 PRODUCER = "Explica este cargo - transcript"
@@ -95,11 +145,7 @@ class _Doc(FPDF):
             if kind == "customer":
                 self.author_line(L["customer_author"], e["at"])
                 self.set_fill_color(*TINT)
-                self.para(e["text"], fill=True)  # the customer's own words, always (specs/004, FR-425)
-                if e.get("translation"):
-                    self.para(f'{L["translated"]}: {e["translation"]}', size=9, indent=5, color=GREY, h=4.5)
-                elif e.get("translation_missing"):
-                    self.para(L["no_translation"], size=8.5, indent=5, color=GREY, h=4.5)
+                self.para(e["text"], fill=True)
             else:
                 if previous in (None, "customer"):
                     self.author_line(L["assistant_author"], e["at"])

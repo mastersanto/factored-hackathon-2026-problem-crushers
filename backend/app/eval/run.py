@@ -28,6 +28,7 @@ from app.data.store import get_store
 from app.eval.cases import CATEGORIES, EVAL_DIR
 from app.eval.transcript_check import check_case
 from app.tools import banking
+from app.language.translator import conversation_view
 from app.workflow.engine import Engine, HandoffQueue, SessionStore, public_event
 
 REPORT = BACKEND_DIR.parent / "docs" / "evaluation.md"
@@ -165,6 +166,73 @@ def grade(case: dict, turns: list[dict], usage: list[dict], store) -> dict:
             "understood_by": sorted({e.get("source") for e in events if e["type"] == "step" and e.get("step") == "understand"} - {None})}
 
 
+# ---- across languages (specs/004, SC-404, SC-405) -----------------------------------------------------------
+def _converse(engine: Engine, sessions: SessionStore, case: dict, turns: list[str], lang: str) -> tuple:
+    """Run turns as the API does: every customer-visible event goes through the session's transcript recorder."""
+    s = sessions.create(banking.get_customer(engine.store, case["customer_id"]))
+    s.lang = lang
+    events, pending = [], list(turns)
+    while pending:
+        text = pending.pop(0)
+        s.transcript.begin(text)
+        evs = list(engine.handle(s, text))
+        for e in evs:
+            if not e.get("internal"):
+                s.transcript.record(e)
+        s.transcript.commit()
+        events += evs
+        cands = [e for e in evs if e["type"] == "candidates"]
+        if cands:
+            opt = next((c["option"] for c in cands[0]["items"] if c["transaction_id"] == case["expected"]["transaction_id"]), None)
+            pending.insert(0, str(opt) if opt else PICK[lang])
+    return s, events
+
+
+def _facts(view: dict) -> list:
+    out = []
+    for t in view["turns"]:
+        for e in t.get("events", []):
+            if e["type"] == "message":
+                out.append([(st["basis"], st["source"]) for st in e["statements"]])
+            elif e["type"] in ("verdict", "handoff"):
+                out.append(e.get("verdict") or e["handoff"]["case_id"])
+            elif e["type"] == "candidates":
+                out.append([(c["option"], c["status"]) for c in e["items"]])
+    return out
+
+
+def _signature(engine: Engine, events: list[dict]) -> dict:
+    """What must be the same in every language: tools called, records asserted, decisions, and the handoff."""
+    queue = {h["case_id"]: h for h in engine.handoffs.items}
+    h = next((queue[e["handoff"]["case_id"]] for e in events if e["type"] == "handoff"), None)
+    return {"tools": [e.get("tool") for e in events if e["type"] == "step" and e.get("step") == "act"],
+            "decisions": [e.get("action") for e in events if e["type"] == "step" and e.get("action")],
+            "asserted": sorted({m for e in events if e["type"] == "message" for st in e["statements"]
+                                if st["basis"] == "known" for m in TX_RE.findall(st.get("source") or "")}),
+            "handoff": (h["case_type"], h["verified_facts"]["transaction_id"], tuple(h.get("rights") or [])) if h else None}
+
+
+def run_cross(engine: Engine, sessions: SessionStore, case: dict) -> dict:
+    exp = case["expected"]
+    if case["category"] == "language_switch":
+        s, events = _converse(engine, sessions, case, case["turns"], case["language"])
+        sig = _signature(engine, events)
+        final = next((e["lang"] for e in reversed(events) if e["type"] == "done"), None)
+        views = {lang: _facts(conversation_view(s, lang, None)) for lang in ("en", "es", "pt")}
+        same = views["en"] == views["es"] == views["pt"] and bool(views["en"])
+        ok = bool(sig["handoff"]) and sig["handoff"][1] == exp["transaction_id"] and final == exp["final_lang"] and same
+        return {"id": case["id"], "category": "language_switch", "correct": ok, "final_lang": final, "reshow_identical": same}
+    sigs = {}
+    for lang, turns in case["variants"].items():
+        _, events = _converse(engine, sessions, case, turns, lang)
+        sig = _signature(engine, events)
+        sigs[lang] = {**sig, "handoff": sig["handoff"] and (sig["handoff"][0], sig["handoff"][1], sig["handoff"][2])}
+    first = next(iter(sigs.values()))
+    ok = all(v == first for v in sigs.values()) and bool(first["handoff"]) and first["handoff"][1] == exp["transaction_id"]
+    return {"id": case["id"], "category": "parity", "correct": ok,
+            "differs": sorted({k for v in sigs.values() for k in v if v[k] != first[k]})}
+
+
 def pct(a: int, b: int) -> str:
     return f"{100 * a / b:.1f}% ({a}/{b})" if b else "n/a"
 
@@ -255,6 +323,12 @@ def run(mode: str, repeats: int = 1, cases_name: str = "cases") -> dict:
                      "by_language": breakdown(results, "language"), "by_segment": breakdown(results, "segment"), "results": results})
     out = {"mode": mode, "model_versions": {"understand": settings.understand_model, "phrase": settings.phrase_model} if llm else None,
            "fraud_model": engine.fraud.name if engine.fraud else "rule", "cases": len(cases), "repeats": runs}
+    cross_path = EVAL_DIR / f"{cases_name}-cross.json"
+    if cross_path.exists():
+        cross = [run_cross(engine, sessions, c) for c in json.loads(cross_path.read_text())]
+        out["cross"] = {cat: pct(sum(r["correct"] for r in rs), len(rs))
+                        for cat in ("language_switch", "parity") for rs in [[r for r in cross if r["category"] == cat]]}
+        out["cross_results"] = cross
     out["cases_name"] = cases_name
     (EVAL_DIR / f"results-{cases_name}-{mode}.json").write_text(json.dumps(out, indent=1, default=str))
     return out

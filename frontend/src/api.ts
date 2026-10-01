@@ -36,6 +36,8 @@ export interface Handoff {
   answer_by?: string
   open_questions?: string[]
   security_flags: string[]
+  /** Marked translations of the customer's words into the specialist's language (specs/004, FR-427). */
+  translations?: { request?: string; customer_statement?: string }
 }
 
 export interface DemoCustomer {
@@ -75,7 +77,7 @@ async function json<T>(res: Response): Promise<T> {
 export const api = {
   health: () => fetch('/api/health').then(json<{ as_of: string; llm_enabled: boolean }>),
   demoCustomers: () => fetch('/api/demo/customers').then(json<DemoCustomer[]>),
-  handoffs: () => fetch('/api/handoffs').then(json<Handoff[]>),
+  handoffs: (lang: Lang) => fetch(`/api/handoffs?lang=${lang}`).then(json<Handoff[]>),
   setSessionLanguage: (session_id: string, lang: Lang) =>
     fetch('/api/session/language', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id, lang }) })
       .then(json<ConversationView>),

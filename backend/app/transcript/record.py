@@ -13,11 +13,14 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from app.language import LANGS
+from app.language.translator import render_text
 from app.transcript.mask import mask
+from app.workflow import messages as M
 
-SCHEMA = 1
-# Bump the suffix whenever the layout changes: verification re-renders byte for byte (research §5).
-RENDERER = "fpdf2-2.8.9/r1"
+SCHEMA = 2
+# Bump the suffix whenever the layout changes: verification re-renders byte for byte (research §5). r1 (schema 1)
+# is frozen in render_v1.py so PDFs issued before specs/004 keep verifying.
+RENDERER = "fpdf2-2.8.9/r2"
 
 TIME_ZONES = {"México": "America/Mexico_City", "Mexico": "America/Mexico_City", "Colombia": "America/Bogota",
               "Argentina": "America/Argentina/Buenos_Aires"}
@@ -51,6 +54,15 @@ def _recipe(event: dict) -> dict:
     if t == "candidates":
         return {"raw": [c.get("raw") for c in event["items"]]}
     return {}
+
+
+def _item(item: dict, raw: dict | None, lang: str) -> dict:
+    """A charge option re-worded in `lang` from its raw values; the same keys the entry already has."""
+    if not raw:
+        return item
+    return {"option": item["option"], "amount": M.money(raw["amount"], raw["currency"], lang),
+            "merchant": raw["merchant"] or M.TX_KINDS[lang].get(raw["type"], raw["type"]),
+            "when": M.when(datetime.fromisoformat(raw["date"]), lang), "status": raw["status"]}
 
 
 class TranscriptRecorder:
@@ -114,17 +126,48 @@ class TranscriptRecorder:
     def case_ids(self) -> list[str]:
         return list(dict.fromkeys(e["case_id"] for e in self.entries if e["kind"] == "handoff"))
 
-    def snapshot(self, *, conversation_ref: str, first_name: str, country: str, generated_at: datetime) -> dict:
-        """The canonical transcript: what gets fingerprinted, rendered, and embedded in the PDF."""
+    def snapshot(self, *, conversation_ref: str, first_name: str, country: str, generated_at: datetime,
+                 lang: str | None = None, translations: dict[int, str] | None = None) -> dict:
+        """The canonical transcript, schema 2: what gets fingerprinted, rendered, and embedded in the PDF.
+
+        It is in `lang` (the session's language at download; the latest reply's by default), by the same rules as
+        re-showing the conversation (specs/004, FR-424, FR-425): assistant messages in another language are rebuilt
+        from their recipes, and each customer message keeps its own words (`text`, `original_lang`) plus, when its
+        language differs, the translation already made for display or `translation_missing`. No model is called
+        here (specs/002, FR-112): only translations already in `translations` are used."""
+        lang = lang or self.lang
+        translations = translations or {}
         zone_name = TIME_ZONES.get(country, DEFAULT_ZONE)
         zone = ZoneInfo(zone_name)
 
         def at(ts: float) -> str:
             return datetime.fromtimestamp(ts, zone).isoformat(timespec="seconds")
 
-        entries = [{"at": at(e["ts"]), **{k: v for k, v in e.items() if k != "ts"}} for e in self.entries]
+        with self._lock:
+            pairs = list(zip(self._entries, self._recipes))
+        entries = []
+        for i, (e, rc) in enumerate(pairs):
+            out = {"at": at(e["ts"]), **{k: v for k, v in e.items() if k != "ts"}}
+            own = rc.get("lang", self.lang)
+            if e["kind"] == "customer":
+                out["original_lang"] = own
+                if own != lang:
+                    if translations.get(i):
+                        out["translation"] = translations[i]
+                    else:
+                        out["translation_missing"] = True
+            elif own != lang and e["kind"] == "message":
+                statements = [{**st, "text": render_text(r["key"], r["params"], lang) if r.get("key") else st["text"]}
+                              for st, r in zip(e["statements"], rc.get("statements") or [{}] * len(e["statements"]))]
+                if any(r.get("key") for r in rc.get("statements") or []):
+                    out["statements"], out["text"] = statements, " ".join(st["text"] for st in statements)
+            elif own != lang and e["kind"] == "candidates" and rc.get("raw"):
+                out["items"] = [_item(it, raw, lang) for it, raw in zip(e["items"], rc["raw"])]
+            elif own != lang and e["kind"] == "notice" and e.get("code") in M.T:
+                out["text"] = M.t(e["code"], lang)
+            entries.append(out)
         return {"schema": SCHEMA, "renderer": RENDERER, "conversation_ref": conversation_ref,
                 "customer": {"first_name": first_name, "country": country}, "time_zone": zone_name,
-                "lang": self.lang, "case_ids": self.case_ids,
+                "lang": lang, "case_ids": self.case_ids,
                 "masked": self.masked, "entries": entries,
                 "generated_at": generated_at.astimezone(zone).isoformat(timespec="seconds")}

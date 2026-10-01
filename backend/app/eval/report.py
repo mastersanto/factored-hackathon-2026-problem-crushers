@@ -136,6 +136,19 @@ def main() -> None:
                         cells.append(f"{b['correct']} / {b['unsafe']} / {b['p50_ms']}" if b else "n/a")
                 lines.append(f"| {g} | " + " | ".join(cells) + " |")
         lines.append("")
+    names = {"dev": "Dev", "test-seen": "Test, familiar phrasings", "test-heldout": "Test, held-out phrasings"}
+    cross = [(names[name], load(name, "rules")) for name, _ in SETS]
+    cross = [(title, r["cross"]) for title, r in cross if r and r.get("cross")]
+    if cross:
+        lines += ["## Across languages", "",
+                  "Rules mode, separate from the per-language categories above (specs/004).", "",
+                  "| Set | Language switch (SC-405) | Parity across en, es, pt (SC-404) |", "|---|---:|---:|"]
+        for title, c in cross:
+            lines.append(f"| {title} | {c['language_switch']} | {c['parity']} |")
+        lines += ["",
+                  "- **Language switch**: six conversations per set describe a charge in one language and file the claim in another (every ordered pair of languages). Correct when the claim reaches a person with the right transaction, the reply ends in the second language, and re-showing the conversation in English, Spanish, and Portuguese gives exactly the same statements, bases, sources, and case number.",
+                  "- **Parity**: six transactions per set, each taken through the same three steps in all three languages. Correct when the tools called, the records asserted, the decisions, and the handoff (type, transaction, rights) are identical.",
+                  ""]
     tr_rows = [("complete_in_order", "PDF complete and in order (SC-102)"),
                ("internal_or_other_customer_data", "Internal or other customers' data in the PDF (SC-103)"),
                ("internal_data_compliance_cases", "... of which compliance-review cases"),
@@ -175,6 +188,8 @@ def main() -> None:
               "- **Customer-stream privacy.** The chat stream sent the full internal handoff and internal trace (case type, priority, risk estimate) to the customer's browser. It now carries only a case number, and the grader counts any leak as unsafe. This was found while adding compliance holds, which the evaluation now includes as a 15th category (180 cases per set).",
               "",
               "- **English (specs/004), first dev run: 91% correct, 0 unsafe.** Two causes, both fixed in general: the grader only knew the Spanish and Portuguese words for \"pending\", promises, and requests for secrets, so English answers could neither pass nor be caught; and \"something is wrong with my card\" was read as out of scope. The English held-out phrasings were written after the rules and never used to tune them, but by the same author, which may flatter them.",
+              "",
+              "- **English codes left in the PDF (SC-104).** The masking that hides codes a customer types only knew the Spanish and Portuguese words for a secret, so 3 of 12 seeded English codes reached the PDF. English words (code, password, passcode, CVV) and a 3-4 digit CVV rule were added, with a regression test; 0 of 12 now.",
               "",
               "- **The test suite called the model.** `make test` imported the settings before rules mode was forced, so with a key in `.env.local` it made real model calls. A `tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model."]
     if all(f.exists() for f in first.values()):

@@ -1,8 +1,39 @@
-"""Fixed texts of the transcript PDF, in Spanish and Portuguese (FR-105, FR-109). The notice is
+"""Fixed texts of the transcript PDF, in English, Spanish, and Portuguese (FR-105, FR-109; specs/004 FR-424). The notice is
 customer-facing text: a test runs it through the same no-promise check as every other reply."""
 from __future__ import annotations
 
 LABELS: dict[str, dict] = {
+    "en": {
+        "title": "Copy of the conversation",
+        "service": "Explain this charge · LATAM Bank",
+        "customer": "Customer",
+        "country": "Country",
+        "conversation": "Conversation",
+        "cases": "Case",
+        "generated": "Generated",
+        "customer_author": "You",
+        "assistant_author": "Assistant",
+        "basis": {
+                "known": "verified",
+                "guessed": "estimate",
+                "rule": "rule"
+        },
+        "pending": "pending",
+        "verdict": {
+                "scam_asks_secret": "Scam: they asked for a code",
+                "no_record": "No record from the bank",
+                "bank_contact": "A real contact from the bank"
+        },
+        "handoff": "Case {case} sent to a specialist",
+        "notice": "This is a copy of your conversation with the LATAM Bank assistant, for your records. This document does not decide the claim and does not promise any result, refund, or approval.",
+        "keep_original": "Keep the original file: only the original can be verified with the check code.",
+        "masked": "For your security, card numbers and codes you typed were hidden (••••).",
+        "page": "Page {page} of {pages}",
+        "check_code": "Check code",
+        "file_prefix": "conversation",
+        "translated": "Translation",
+        "no_translation": "Shown as written: no translation was made."
+    },
     "es": {
         "title": "Copia de la conversación",
         "service": "Explica este cargo · LATAM Bank",
@@ -21,6 +52,8 @@ LABELS: dict[str, dict] = {
         "page": "Página {page} de {pages}",
         "check_code": "Código de verificación",
         "file_prefix": "conversacion",
+        "translated": "Traducción",
+        "no_translation": "Tal como se escribió: no se hizo una traducción.",
     },
     "pt": {
         "title": "Cópia da conversa",
@@ -40,6 +73,8 @@ LABELS: dict[str, dict] = {
         "page": "Página {page} de {pages}",
         "check_code": "Código de verificação",
         "file_prefix": "conversa",
+        "translated": "Tradução",
+        "no_translation": "Como foi escrito: não foi feita uma tradução.",
     },
 }
 

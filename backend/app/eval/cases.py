@@ -217,6 +217,38 @@ def generate(per_category: int = 6, seed: int = 7, heldout: bool = False) -> lis
     return cases
 
 
+# Across languages (specs/004, SC-404, SC-405). Kept apart from the per-language categories so every existing
+# aggregate, denominator, and language row stays comparable.
+SWITCHES = [("es", "pt"), ("pt", "en"), ("en", "es"), ("es", "en"), ("pt", "es"), ("en", "pt")]
+
+
+def generate_cross(seed: int = 7, n: int = 6) -> list[dict]:
+    """language_switch: describe a charge in one language, then say "it wasn't me" and give a statement in another.
+    parity: the same three steps, for one transaction, in each of the three languages."""
+    store = get_store()
+    base = "t.merchant_name IS NOT NULL AND t.transaction_status IN ('Approved', 'Declined') AND coalesce(t.fraud_score, 0) <= 30"
+    rows = _pick_tx(store, base, 2 * n, seed + 90)
+    out = []
+    provenance = "team-generated conversation (templated); transaction and customer from the organizers' synthetic data"
+
+    def turns(row, a, b):
+        return [DESCRIBE[a][0].format(amount=f"{row['amount']:.2f}", merchant=row["merchant_name"]), CLAIM[b][0], STATEMENT[b][0]]
+
+    for i, row in enumerate(rows[:n]):
+        a, b = SWITCHES[i % len(SWITCHES)]
+        out.append({"id": f"language_switch-{a}-{b}-{i:02d}", "category": "language_switch", "language": a, "switch_to": b,
+                    "customer_id": row["customer_id"], "segment": row["segment"], "country": row["country"],
+                    "turns": turns(row, a, b), "expected": {"transaction_id": row["transaction_id"], "handoff": True,
+                                                            "rights_country": row["country"], "final_lang": b},
+                    "provenance": provenance})
+    for i, row in enumerate(rows[n:]):
+        out.append({"id": f"parity-{i:02d}", "category": "parity", "customer_id": row["customer_id"],
+                    "segment": row["segment"], "country": row["country"],
+                    "variants": {lang: turns(row, lang, lang) for lang in LANG_OFFSET},
+                    "expected": {"transaction_id": row["transaction_id"], "handoff": True}, "provenance": provenance})
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--per-category", type=int, default=6)
@@ -228,6 +260,9 @@ def main() -> None:
     EVAL_DIR.mkdir(parents=True, exist_ok=True)
     path = EVAL_DIR / f"{args.name}.json"
     path.write_text(json.dumps(cases, indent=1, default=str, ensure_ascii=False))
+    cross = generate_cross(args.seed)
+    (EVAL_DIR / f"{args.name}-cross.json").write_text(json.dumps(cross, indent=1, default=str, ensure_ascii=False))
+    print(f"{len(cross)} cross-language cases -> {args.name}-cross.json")
     by = {}
     for c in cases:
         by[(c["category"], c["language"])] = by.get((c["category"], c["language"]), 0) + 1

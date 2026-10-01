@@ -18,8 +18,10 @@ import json
 import pypdf
 
 from app.transcript.fingerprint import FingerprintRegister, check_code, fingerprint
-from app.transcript.record import RENDERER, SCHEMA
-from app.transcript.render import render
+from app.transcript import render as r2, render_v1 as r1
+
+# Every renderer that ever issued a PDF, by (schema, renderer). Old ones stay frozen so their PDFs keep verifying.
+RENDERERS = {(1, "fpdf2-2.8.9/r1"): r1.render, (2, "fpdf2-2.8.9/r2"): r2.render}
 
 
 def verify(data: bytes, register: FingerprintRegister) -> dict:
@@ -37,7 +39,8 @@ def verify(data: bytes, register: FingerprintRegister) -> dict:
         return {"result": "unreadable"}
 
     code = signed.get("check_code") if isinstance(signed.get("check_code"), str) else None
-    if signed.get("renderer") != RENDERER or signed.get("schema") != SCHEMA:
+    render = RENDERERS.get((signed.get("schema"), signed.get("renderer")))
+    if render is None:
         return {"result": "unknown_version", "check_code": code}
     fp = fingerprint(signed)
     if code is None or not hmac.compare_digest(check_code(fp), code):
