@@ -90,7 +90,7 @@ test('a greeting at "was it you?" re-asks the question and leaves the panel (US2
   await send(page, chargeMessage(c))
   await send(page, 'hola')
   await expectStage(page, isMobile, steps.charge.names, 3)
-  await expect(page.locator('.msg.assistant').last()).toContainText('Para continuar necesito su respuesta')
+  await expect(page.locator('.msg.assistant').last()).toContainText(`Hola, ${c.first_name.split(' ')[0]}.`)  // specs/007
   await expect(page.locator('.msg.assistant').last()).toContainText('¿Reconoce ahora este cargo?')
   await expect(page.locator('.chips.replies').getByRole('button')).toHaveText(['Sí, fui yo', 'No fui yo'])
 })

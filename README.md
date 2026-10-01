@@ -124,4 +124,5 @@ See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what th
 | [`specs/003-ui-improvements/`](specs/003-ui-improvements/) | The interface in the customer's language, clearer source labels, phone width, and accessibility: spec, plan, research, the approved design prototype, UI contract, tasks |
 | [`specs/005-suggestions-language/`](specs/005-suggestions-language/) | Suggestions (example messages and quick replies) always in the language the customer is using: spec, plan, research, contracts, tasks |
 | [`specs/006-inquiry-progress/`](specs/006-inquiry-progress/) | The progress panel follows the inquiry; replies follow what the customer wrote: spec, plan, research, data model, contracts, tasks |
+| [`specs/007-reactive-replies/`](specs/007-reactive-replies/) | "My last movements", and proper answers to greetings, thanks, and help: spec, plan, tasks |
 | [`specs/004-browser-language/`](specs/004-browser-language/) | The whole app in English, Spanish, or Portuguese: language from the browser, from what the customer writes, or a switcher; re-showing the conversation; spec, plan, research, data model, contracts, tasks |

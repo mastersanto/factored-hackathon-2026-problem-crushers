@@ -10,7 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 Intent = Literal["dispute_charge", "check_contact", "confirm_mine", "file_claim", "choose_option",
-                 "provide_statement", "out_of_scope", "greeting", "reconfirm"]
+                 "provide_statement", "out_of_scope", "greeting", "reconfirm", "list_recent", "thanks", "help"]
 
 
 class Understanding(BaseModel):
@@ -25,6 +25,7 @@ class Understanding(BaseModel):
     asked_for_secret: bool = False
     shared_secret: bool | None = None
     option: int | None = None
+    count: int | None = None  # how many recent movements were asked for (specs/007)
     other_customer_reference: bool = False
     injection_suspected: bool = False
     source: Literal["rules", "llm"] = "rules"
@@ -37,7 +38,8 @@ def _norm(text: str) -> str:
 
 PT_MARKERS = ["nao ", "voce", "cobranca", "cartao", "reconheco", "obrigad", "ontem", "hoje", "ligacao",
               "mensagem", "senha", "compra no", "fui eu", "nao fui", "estou", "meu ", "minha ", "ligaram", "dizendo",
-              "pediram", "chegou", "do banco", "cobraram", "compartilhei", "voces", "fatura", "tem uma", "apareceu"]
+              "pediram", "chegou", "do banco", "cobraram", "compartilhei", "voces", "fatura", "tem uma", "apareceu",
+              "quais", "transacoes", "movimentos", "minhas", "ajuda", "extrato", "valeu"]
 SECRET = ["codigo", "clave", "contrasena", "nip", " pin", "token", "senha", "cvv", "otp",
           " code", "password", "passcode", "security code"]
 # Words that say the contact asked for the secret. "share" is left out on purpose: "I didn't share any code" is
@@ -76,7 +78,25 @@ OUT_OF_SCOPE = ["prestamo", "credito nuevo", "invertir", "hipoteca", "abrir una 
                 "hacer una transferencia", "cambiar mi direccion", "saldo de mi cuenta",
                 "loan", "balance", "transfer money", "make a transfer", "open an account", "change my address",
                 "change my phone", "mortgage", "invest"]
-GREETING = ["hola", "buenas", "buenos dias", "ola", "oi", "bom dia", "hello", "hi", "hey", "good morning", "good afternoon"]
+GREETING = ["hola", "buenas", "buenos dias", "ola", "oi", "bom dia", "boa tarde", "boa noite", "hello", "hi", "hey",
+            "good morning", "good afternoon", "good evening", "how are you", "como esta", "que tal", "tudo bem", "tudo bom"]
+# specs/007: the customer's recent movements, thanks, and "what can you do?". Matched on normalized text.
+# A list request names recent movements ("my last transactions"), or asks to see one's movements ("show my
+# transactions"). A complaint that mentions them ("something in my transactions doesn't add up") stays a dispute.
+RECENT = ["ultimos movimientos", "ultimos cargos", "ultimas compras", "ultimas transacciones", "ultimos gastos",
+          "movimientos recientes", "historial de movimientos", "ultimos pagos",
+          "ultimas transacoes", "ultimos movimentos", "ultimas movimentacoes", "ultimas cobrancas", "transacoes recentes",
+          "last movements", "last transactions", "recent transactions", "last charges", "recent charges",
+          "last purchases", "recent purchases", "recent movements", "last payments", "transaction history"]
+OWN_MOVEMENTS = ["mis movimientos", "mis cargos", "mis compras", "mis transacciones", "meus movimentos", "minhas transacoes",
+                 "minhas movimentacoes", "minhas compras", "my transactions", "my movements", "my charges", "my purchases"]
+SHOW = ["muestrame", "mostrar", "quiero ver", "ver mis", "cuales son", "mostre", "mostra ", "quero ver", "ver minhas",
+        "ver meus", "quais sao", "show", "see my", "list my", "what are my", "let me see"]
+RECENT_COUNT_RE = re.compile(r"\b(?:ultim[oa]s|last|recent)\s+(\d{1,2})\b")
+THANKS = ["gracias", "muchas gracias", "obrigad", "valeu", "thank", "thanks", "thx", "te agradezco", "agradeco"]
+HELP = ["que puedes hacer", "que puede hacer", "en que me ayudas", "en que me puede ayudar", "ayuda", "como funciona",
+        "o que voce faz", "o que voce pode fazer", "ajuda", "como funciona",
+        "what can you do", "help", "how does this work", "how does it work"]
 CHARGE_WORDS = ["cargo", "cobro", "compra", "cobranca", "debito", "movimiento", "transaccion", "movimentacao",
                 "charge", "transaction", "payment", "debit", "purchase"]
 
@@ -86,15 +106,18 @@ EN_WORDS = {"the", "i", "my", "is", "was", "wasn't", "don't", "didn't", "it", "i
             "charge", "from", "bank", "and", "you", "your", "please", "hello", "hi", "yes", "recognize", "called",
             "asked", "message", "card", "they", "have", "at", "on", "got", "received", "someone", "today", "yesterday",
             "wrong", "not", "did", "do", "does", "can", "want", "help", "account", "transaction", "payment",
-            "purchase", "code", "shared", "share", "lost", "of", "for", "with", "me", "mine", "made", "phone", "text",
+            "purchase", "code", "shared", "share", "lost", "thanks", "thank", "last", "recent", "transactions", "show", "of", "for", "with", "me", "mine", "made", "phone", "text",
             "call", "there", "an", "a", "be", "real", "pending", "loan", "balance", "i'm", "can't", "won't"}
 ES_WORDS = {"el", "la", "los", "las", "un", "una", "del", "mi", "mis", "con", "por", "para", "es", "esta", "este",
             "esa", "ese", "fui", "yo", "cargo", "cobro", "cobraron", "tarjeta", "reconozco", "hola", "llamaron",
             "llamada", "mensaje", "pidieron", "clave", "contrasena", "cuenta", "quiero", "tengo", "hice", "pague",
             "compre", "lo", "le", "se", "usted", "senor", "gracias", "ayer", "hoy", "dinero", "si", "y", "pero",
             "cuando", "donde", "porque", "mio", "mia", "hay", "algo", "raro", "duda", "movimiento", "comercio",
-            "dia", "di", "comparti", "nada", "eso", "esto", "salio", "aparece", "cobrado", "prestamo", "saldo"}
+            "dia", "di", "comparti", "nada", "eso", "esto", "salio", "aparece", "cobrado", "prestamo", "saldo",
+            "ayuda", "ultimos", "movimientos", "muestrame", "cuales", "puedes", "estas"}
 GREETING_WORDS = {"hola", "hello", "hi", "hey", "ola", "oi"}
+# One-word courtesy that still says the language (specs/007): "gracias", "thanks", "help".
+COURTESY_WORDS = GREETING_WORDS | {"gracias", "thanks", "thank", "thx", "help", "ayuda"}
 
 
 def detect_language(t: str) -> str | None:
@@ -104,7 +127,7 @@ def detect_language(t: str) -> str | None:
         return "pt"
     en = sum(w in EN_WORDS for w in words)
     es = sum(w in ES_WORDS for w in words)
-    if len(words) < 2 and not (words and words[0] in GREETING_WORDS):
+    if len(words) < 2 and not (words and words[0] in COURTESY_WORDS):
         return None
     if en > es:
         return "en"
@@ -142,6 +165,14 @@ def _parse_amount(raw: str) -> float | None:
         return None
 
 
+def _asks_for_recent(t: str) -> bool:
+    """A request to see one's recent movements, not a complaint about them (specs/007)."""
+    if any(k in t for k in PROBLEM) or any(k in t for k in CLAIM):
+        return False
+    t = RECENT_COUNT_RE.sub(lambda m: m.group(0)[:m.start(1) - m.start(0)].rstrip(), t)  # "last 8 transactions"
+    return any(k in t for k in RECENT) or (any(k in t for k in SHOW) and any(k in t for k in OWN_MOVEMENTS))
+
+
 def understand(text: str, merchants: list[str], today: datetime, expecting: str | None = None,
                session_customer_id: str | None = None) -> Understanding:
     t = f" {_norm(text)} "
@@ -162,6 +193,9 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
     en_named = EN_DATE_RE.search(_norm(text))
     text_wo_dates = EN_DATE_RE.sub(" ", NAMED_DATE_RE.sub(" ", _norm(text)))
     text_wo_dates = DATE_RE.sub(" ", text_wo_dates)
+    if (cm := RECENT_COUNT_RE.search(text_wo_dates)):  # "my last 8 movements": a count, not an amount of 8
+        u.count = int(cm.group(1))
+        text_wo_dates = text_wo_dates[:cm.start(1)] + " " + text_wo_dates[cm.end(1):]
     for raw in AMOUNT_RE.findall(text_wo_dates.lower()):
         val = _parse_amount(raw)
         if val and val >= 1 and not (1900 <= val <= 2100 and "." not in raw and "," not in raw):
@@ -215,6 +249,8 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.intent = "confirm_mine"
     elif any(k in t for k in CONTACT) and any(k in t for k in FROM_BANK):
         u.intent = "check_contact"
+    elif _asks_for_recent(t) and not (u.amount or u.merchant or u.date):
+        u.intent = "list_recent"  # details win: "my last movements at Uber" is a search
     elif any(k in t for k in CLAIM):  # before MINE: "no fui yo" contains "fui yo"
         u.intent = "file_claim" if expecting == "confirm" else "dispute_charge"
     elif any(k in t for k in MINE):
@@ -223,7 +259,11 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.intent = "out_of_scope"
     elif u.amount or u.merchant or any(k in t for k in CHARGE_WORDS) or any(k in t for k in CLAIM) or any(k in t for k in PROBLEM):
         u.intent = "dispute_charge"
-    elif any(t.strip().startswith(g) for g in GREETING):
+    elif any(k in t for k in HELP):
+        u.intent = "help"
+    elif any(k in t for k in THANKS):
+        u.intent = "thanks"
+    elif any(re.sub(r"^[^a-z]+", "", t.strip()).startswith(g) for g in GREETING):  # "¿cómo está?"
         u.intent = "greeting"
     else:
         u.intent = "out_of_scope"

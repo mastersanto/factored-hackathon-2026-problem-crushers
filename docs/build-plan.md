@@ -134,6 +134,16 @@ customer (web chat, ES/PT)
   - "which one?", "was it you?", and "did you share anything?" are asked again after a greeting, an off-topic message, or an unclear answer;
   - an unclear answer to "did you share anything?" is asked again rather than read as "no", and "shared" in either parser escalates: the safer reading (constitution III), with tests that fail without it.
 
+### Answers that react to what the customer asks (feature 007, 2026-10-01)
+
+- **The owner's request**: answer the customer's question, not a needless reply: a proper answer to "hello", and the last movements when asked.
+- **Finding**: "show my last movements" got "I need one more detail", and "thanks", "help", "boa tarde", and "how are you?" got "I can't help with that here".
+- **Decisions** (taken without a clarification round, at the owner's request to implement directly):
+  - a read-only `recent_transactions` tool, scoped to the session's customer, lists the newest 5 charge-type movements of the 90-day window (1-9 on request; 9 keeps the one-digit option reply). They're shown as the usual choosable cards, so picking one flows into the dispute;
+  - details win: "my last movements at Uber" is a search;
+  - greetings, thanks, and help get their own templates. At a pending question, the courtesy is answered briefly and the question is asked again;
+  - the scope stays dispute intake: balances, loans, and transfers are still out of scope.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

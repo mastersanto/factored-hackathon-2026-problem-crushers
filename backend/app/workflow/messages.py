@@ -88,6 +88,29 @@ T = {
         "en": "More charges match than I can show. Can you give me another detail (amount, merchant, or day) to narrow it down?",
         "es": "Hay más cargos que coinciden de los que puedo mostrar. ¿Me da otro dato (monto, comercio o día) para acotar?",
         "pt": "Há mais cobranças correspondentes do que consigo mostrar. Pode me dar outro dado (valor, loja ou dia) para restringir?"},
+    # specs/007: the customer's last movements, and answers to courtesy and help.
+    "recent_list": {
+        "en": "These are your last {n} movements. If one of them isn't yours, reply with its number and I'll explain it.",
+        "es": "Estos son sus últimos {n} movimientos. Si alguno no es suyo, responda con su número y se lo explico.",
+        "pt": "Estes são os seus últimos {n} movimentos. Se algum não for seu, responda com o número e eu explico."},
+    "recent_cap": {
+        "en": "I can show up to {cap} at a time.",
+        "es": "Puedo mostrar hasta {cap} a la vez.",
+        "pt": "Posso mostrar até {cap} de cada vez."},
+    "recent_none": {
+        "en": "I don't see movements in your account in the last 90 days. If you remember the amount, the merchant, or the day, tell me and I'll look again.",
+        "es": "No veo movimientos en su cuenta en los últimos 90 días. Si recuerda el monto, el comercio o el día, dígamelo y vuelvo a buscar.",
+        "pt": "Não vejo movimentos na sua conta nos últimos 90 dias. Se lembrar o valor, a loja ou o dia, me diga e eu procuro de novo."},
+    "greeting_short": {"en": "Hello, {name}.", "es": "Hola, {name}.", "pt": "Olá, {name}."},
+    "thanks_short": {"en": "You're welcome.", "es": "Con gusto.", "pt": "De nada."},
+    "thanks": {
+        "en": "You're welcome. If you need anything else, I can show your last movements, review a charge you don't recognize, or check whether a contact \"from the bank\" is real.",
+        "es": "Con gusto. Si necesita algo más, puedo mostrarle sus últimos movimientos, revisar un cargo que no reconoce o verificar si un contacto \"del banco\" es real.",
+        "pt": "De nada. Se precisar de mais alguma coisa, posso mostrar os seus últimos movimentos, revisar uma cobrança que você não reconhece ou verificar se um contato \"do banco\" é verdadeiro."},
+    "help": {
+        "en": "I can show your last movements, explain a charge you don't recognize and send your claim to a specialist, and check whether a message or call \"from the bank\" is real. For example: \"show my last movements\" or \"I don't recognize a charge at Uber\".",
+        "es": "Puedo mostrarle sus últimos movimientos, explicarle un cargo que no reconoce y enviar su reclamo a un especialista, y verificar si un mensaje o llamada \"del banco\" es real. Por ejemplo: \"muéstrame mis últimos movimientos\" o \"no reconozco un cargo en Uber\".",
+        "pt": "Posso mostrar os seus últimos movimentos, explicar uma cobrança que você não reconhece e enviar a sua contestação a um especialista, e verificar se uma mensagem ou ligação \"do banco\" é verdadeira. Por exemplo: \"mostre meus últimos movimentos\" ou \"não reconheço uma cobrança no Uber\"."},
     # specs/006, research R4: the search replies name what was searched for, and ask only for what is missing.
     "none_found_with": {
         "en": "I didn't find a charge {searched} in the last 90 days. Can you tell me {missing}?",

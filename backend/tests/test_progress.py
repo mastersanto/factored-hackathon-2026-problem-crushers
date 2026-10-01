@@ -273,7 +273,8 @@ def test_a_pending_confirm_is_asked_again(lang, key):
     say(sid, charge_text(d, lang))
     ev = say(sid, P[key][lang])
     assert "reask_pending" in actions(ev)
-    assert keys(sid)[-1] == ["need_answer", "ask_confirm"]
+    lead = {"greeting": "greeting_short", "off_topic": "need_answer"}[key]  # a greeting is returned (specs/007)
+    assert keys(sid)[-1] == [lead, "ask_confirm"]
     assert done(ev)["stage"] == "confirm" and done(ev)["suggestions"] == api.M.QUICK_REPLIES["confirm"][lang]
 
 

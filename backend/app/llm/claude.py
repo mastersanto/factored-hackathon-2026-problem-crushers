@@ -30,7 +30,8 @@ PRICES = {"claude-haiku-4-5": (1.0, 5.0), "claude-sonnet-5-5": (2.0, 10.0)}
 
 class _LLMUnderstanding(BaseModel):
     language: Literal["en", "es", "pt", "unclear"]
-    intent: Literal["dispute_charge", "check_contact", "confirm_mine", "file_claim", "choose_option", "out_of_scope", "greeting"]
+    intent: Literal["dispute_charge", "check_contact", "confirm_mine", "file_claim", "choose_option", "list_recent",
+                    "thanks", "help", "out_of_scope", "greeting"]
     amount: float | None = Field(description="amount the customer mentions, as a plain number, or null")
     merchant: str | None = Field(description="one of the known merchant names if the customer names it, else null")
     date: str | None = Field(description="YYYY-MM-DD of the day the customer refers to, resolved against today, or null")
@@ -38,6 +39,7 @@ class _LLMUnderstanding(BaseModel):
     asked_for_secret: bool = Field(description="the contact the customer describes asked for a code, PIN, password, or card data")
     shared_secret: bool | None = Field(description="the customer says they shared a code or data (true), did not (false), or does not say (null)")
     option: int | None = Field(description="the option number the customer picks from a list, or null")
+    count: int | None = Field(default=None, description="for list_recent: how many movements they ask for, or null")
 
 
 UNDERSTAND_SYSTEM = """You read one chat message from a bank customer in Mexico, Colombia, Argentina, or Brazil, written in English, Spanish, or Portuguese, and extract what they mean, for a transaction-dispute assistant.
@@ -48,7 +50,10 @@ Intents:
 - confirm_mine: they now recognize the charge ("fui yo", "sim, fui eu").
 - file_claim: they say it was not them or want to dispute it.
 - choose_option: they pick a numbered option from a list we showed.
-- greeting: only a greeting.
+- list_recent: they ask to see their last or recent movements, charges, or transactions, with no amount, merchant, or date.
+- greeting: only a greeting, or "how are you?".
+- thanks: only thanks.
+- help: they ask what the assistant can do, or for help using it.
 - out_of_scope: anything else (loans, balances, transfers, account changes).
 Language is "en" for English, "es" for Spanish, "pt" for Portuguese, and "unclear" when the message is too short or too mixed to tell (an option number, "ok", an amount, a date)."""
 
@@ -128,7 +133,7 @@ class Claude:
             language = None if o.language == "unclear" or len(words) < 2 else o.language
             return Understanding(language=language, intent=o.intent, amount=o.amount, merchant=merchant, date=date,
                                  channel=o.channel, asked_for_secret=o.asked_for_secret, shared_secret=o.shared_secret,
-                                 option=o.option, source="llm")
+                                 option=o.option, count=o.count, source="llm")
         except (anthropic.APIError, ValueError) as exc:
             log.warning("understand fell back to rules: %s", exc)
             self._log(settings.understand_model, None, started, False)

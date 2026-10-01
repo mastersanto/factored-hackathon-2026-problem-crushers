@@ -57,6 +57,16 @@ def find_transactions(store: Store, customer_id: str, *, amount: float | None = 
     return store.query(sql, params)
 
 
+MAX_RECENT = 9  # one-digit option replies (specs/007)
+
+
+def recent_transactions(store: Store, customer_id: str, limit: int = 5) -> list[dict]:
+    """The customer's most recent charge-type movements of the lookback window, newest first (specs/007).
+    `limit` is clamped to 1-9. Only `customer_id`, the session's customer, is read."""
+    n = max(1, min(int(limit), MAX_RECENT))
+    return find_transactions(store, customer_id, limit=n)[:n]
+
+
 def get_transaction(store: Store, customer_id: str, transaction_id: str) -> dict:
     rows = store.query(f"SELECT {TX_COLUMNS}, t.customer_id FROM transactions t JOIN products p USING (product_id) "
                        "WHERE t.transaction_id = ?", [transaction_id])

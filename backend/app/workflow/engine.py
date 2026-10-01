@@ -261,9 +261,9 @@ class Engine:
         details = bool(u.amount or u.merchant or u.date)
         # At "did you share anything?", a clear yes or no is the answer, even with a number in it ("I gave them the
         # code 123456"); only an unclear message may start a new contact check or charge search (research R5).
-        new_inquiry = u.intent == "check_contact" or (u.intent == "dispute_charge" and details)
+        new_inquiry = u.intent in ("check_contact", "list_recent") or (u.intent == "dispute_charge" and details)
         if s.stage == "contact_shared" and (_shared_answer(text) is not None or not new_inquiry):
-            yield from self._contact_followup(s, text)
+            yield from self._contact_followup(s, text, u)
             return
         if s.stage == "contact_shared":
             s.stage, s.pending_contact = "start", None
@@ -292,14 +292,20 @@ class Engine:
             self._progress(s, "charge", 4)
             yield self._step("decide", action="collect_statement")
             yield from self._say(s, [_st("ask_statement", s.lang, "rule", "policy:handoff-checklist")], verify=False)
+        elif u.intent == "list_recent":
+            s.request_text = text
+            yield from self._list_recent(s, u)
         elif u.intent == "dispute_charge" or u.intent in ("confirm_mine", "file_claim", "choose_option"):
             # Confirming, claiming, or choosing only make sense about a charge already on screen.
             s.request_text = text
             yield from self._find(s, u)
-        elif u.intent in ("greeting", "out_of_scope") and s.stage in ("choose", "confirm"):
-            yield from self._reask(s, s.stage)  # a pending question is asked again, not dropped (research R5)
+        elif u.intent in ("greeting", "thanks", "help", "out_of_scope") and s.stage in ("choose", "confirm"):
+            yield from self._reask(s, s.stage, u)  # a pending question is asked again, not dropped (specs/006, R5)
         elif u.intent == "greeting":
-            yield from self._say(s, [_st("greeting", s.lang, "rule", "flow", name=s.customer.first_name.split()[0])], verify=False)
+            yield from self._say(s, [_st("greeting", s.lang, "rule", "flow", name=self._name(s))], verify=False)
+        elif u.intent in ("thanks", "help"):  # courtesy gets its own answer, never "I can't help with that" (specs/007)
+            yield self._step("decide", action=f"answer_{u.intent}")
+            yield from self._say(s, [_st(u.intent, s.lang, "rule", "flow")], verify=False)
         else:
             yield self._step("decide", action="abstain_out_of_scope")
             yield from self._say(s, [_st("out_of_scope", s.lang, "rule", "policy:scope")], verify=False)
@@ -307,10 +313,42 @@ class Engine:
     REASK = {"choose": ("choose", "flow"), "confirm": ("ask_confirm", "policy:close-needs-clear-yes"),
              "contact_shared": ("ask_shared", "policy:handoff-checklist")}
 
-    def _reask(self, s: Session, question: str) -> Iterator[dict]:
+    @staticmethod
+    def _name(s: Session) -> str:
+        return s.customer.first_name.split()[0]
+
+    def _lead(self, s: Session, u: Understanding | None) -> Statement:
+        """What comes before a re-asked question: the answer to a courtesy (specs/007), or "I need your answer"."""
+        intent = u.intent if u else None
+        if intent == "greeting":
+            return _st("greeting_short", s.lang, "rule", "flow", name=self._name(s))
+        if intent == "thanks":
+            return _st("thanks_short", s.lang, "rule", "flow")
+        if intent == "help":
+            return _st("help", s.lang, "rule", "flow")
+        return _st("need_answer", s.lang, "rule", "flow")
+
+    def _reask(self, s: Session, question: str, u: Understanding | None = None) -> Iterator[dict]:
         key, source = self.REASK[question]
         yield self._step("decide", action="reask_pending", question=question)
-        yield from self._say(s, [_st("need_answer", s.lang, "rule", "flow"), _st(key, s.lang, "rule", source)], verify=False)
+        yield from self._say(s, [self._lead(s, u), _st(key, s.lang, "rule", source)], verify=False)
+
+    # ---- recent movements (specs/007) -------------------------------------------------------
+    def _list_recent(self, s: Session, u: Understanding) -> Iterator[dict]:
+        asked = u.count or 5
+        found = banking.recent_transactions(self.store, s.customer.customer_id, limit=asked)
+        yield self._step("decide", action="list_recent", asked=asked)
+        yield self._step("act", tool="recent_transactions", results=len(found))
+        self._progress(s, "charge", 2)
+        if not found:
+            yield from self._say(s, [_st("recent_none", s.lang, "known", "tool:recent_transactions")], verify=False)
+            return
+        s.stage, s.candidates = "choose", found
+        yield {"type": "candidates", "items": [self._card(tx, s.lang, i + 1) for i, tx in enumerate(found)]}
+        statements = [_st("recent_list", s.lang, "known", "tool:recent_transactions", n=len(found))]
+        if asked > banking.MAX_RECENT:
+            statements.append(_st("recent_cap", s.lang, "rule", "flow", cap=banking.MAX_RECENT))
+        yield from self._say(s, statements, verify=False)
 
     # ---- dispute path ---------------------------------------------------------------------
     def _find(self, s: Session, u: Understanding) -> Iterator[dict]:
@@ -461,10 +499,10 @@ class Engine:
             self._finish(s, "contact", "no_record")
             yield from self._say(s, [_st("verdict_no_record", lang, "known", "outbound:none-in-window", channel=channel)])
 
-    def _contact_followup(self, s: Session, text: str) -> Iterator[dict]:
+    def _contact_followup(self, s: Session, text: str, u: Understanding | None = None) -> Iterator[dict]:
         shared = _shared_answer(text)
         if shared is None:  # unclear: asked again, never read as "nothing shared" (constitution III)
-            yield from self._reask(s, "contact_shared")
+            yield from self._reask(s, "contact_shared", u)
             return
         pc = s.pending_contact or {"channel": "any", "text": ""}
         if shared:

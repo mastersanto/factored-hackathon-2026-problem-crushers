@@ -94,6 +94,8 @@ EXAMPLES = {
     "contact": {"en": "I got a message by {channel} from the bank on {date}, is it real?",
                 "es": "Recibí un {channel} del banco el {date}, ¿es real?",
                 "pt": "Recebi um {channel} do banco em {date}, é verdade?"},
+    "recent": {"en": "Show me my last movements", "es": "Muéstrame mis últimos movimientos",
+               "pt": "Mostre meus últimos movimentos"},
     "scam": {"en": "Someone called me claiming to be from the bank and asked for the code I got by SMS",
              "es": "Me llamaron supuestamente del banco y me pidieron el código que me llegó por SMS",
              "pt": "Me ligaram dizendo ser do banco e pediram o código que chegou por SMS"},
@@ -105,7 +107,7 @@ EXAMPLES = {
 
 def _examples(hint: dict) -> dict[str, list[str]]:
     """The demo's example messages in each language, in the same order (specs/005, research R2-R3): a charge example
-    only with an amount, a contact example only with a channel and date, and always the scam and the other-customer
+    only with an amount, a contact example only with a channel and date, and always "my last movements" (specs/007), the scam, and the other-customer
     request. Amounts and dates are written the way each language writes them."""
     out: dict[str, list[str]] = {}
     for lang in ("en", "es", "pt"):
@@ -118,7 +120,7 @@ def _examples(hint: dict) -> dict[str, list[str]]:
             when = hint["date"] if isinstance(hint["date"], datetime) else datetime.fromisoformat(str(hint["date"]))
             date = M.day(when, "en") if lang == "en" else f"{when:%d/%m/%Y}"
             items.append(EXAMPLES["contact"][lang].format(channel=hint["channel"], date=date))
-        items += [EXAMPLES["scam"][lang], EXAMPLES["other_customer"][lang]]
+        items += [EXAMPLES["recent"][lang], EXAMPLES["scam"][lang], EXAMPLES["other_customer"][lang]]  # specs/007: recent
         out[lang] = items
     return out
 
