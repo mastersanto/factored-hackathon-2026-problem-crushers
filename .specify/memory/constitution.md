@@ -1,3 +1,10 @@
+<!--
+Sync impact report (1.0.0 -> 1.1.0, MINOR: a supported language added, Principles I and III expanded)
+- Hackathon Constraints: English added as a supported language and as the base language.
+- Principle I: models may also translate the customer's words for display (marked); understanding never goes through a translation.
+- Principle III: the faithfulness check covers every supported language; the safety checks run in code on the original words.
+- Templates: plan, spec, and tasks templates need no change. CLAUDE.md updated. README.md describes what is built and changes when feature 004 ships.
+-->
 # Explain This Charge Constitution
 
 ## Core Principles
@@ -7,8 +14,10 @@
 - **Code owns every decision in the workflow**: understand → decide → act → verify → escalate.
   - That covers finding transactions, checking the outbound record, applying country rules, computing deadlines, choosing the next step, and escalating.
   - This logic is explicit, readable code, not model reasoning.
-- **Models are used only to interpret the customer's message and to reword facts the tools already verified.**
+- **Models are used only to interpret the customer's message, to reword facts the tools already verified, and to translate the customer's own words for display.**
   - Understanding: Claude Haiku 4.5. Phrasing: Claude Sonnet 5.5.
+  - Understanding goes straight from the customer's language to the common, language-neutral form (English names), never through a model's translation of the customer's text.
+  - A translation of the customer's words is always marked as one, and the original words stay the record.
   - A model MUST NOT pick tools, compute amounts or dates, or decide an outcome.
 - **The system MUST keep working safely without any model**: rules and templates take over on any model failure, refusal, or missing credentials.
 
@@ -30,7 +39,8 @@ Rationale: the problem statement requires permissions enforced in code, not in m
   - **guessed**: an estimate, labelled as such;
   - **rule**: a policy or legal rule, citing its ID.
 - **A known statement without a source is removed before it reaches the customer.**
-- **A model's rewording is shown only if it passes a faithfulness check**: the same numbers, no new ones, and no promises. Otherwise the template text is used.
+- **A model's rewording is shown only if it passes a faithfulness check**: the same numbers, no new ones, and no promises, in every supported language. Otherwise the template text is used.
+- **The safety checks run in code on the customer's original words**, in every supported language: requests for codes, PINs, or passwords; references to another customer; attempts to override the instructions; and the negation that files a claim. No translation or model interpretation can drop them.
 - **The system MUST NOT**:
   - promise a claim's outcome, a refund, or approval;
   - ask for codes, PINs, passwords, or card data;
@@ -74,7 +84,10 @@ Rationale: judges assess measured quality and honesty about what is missing. Num
 
 ## Hackathon Constraints
 
-- **Workflow**: one customer-service workflow, transaction-dispute intake, in Spanish and Portuguese, for customers in Mexico, Colombia, and Argentina. Portuguese runs on team-generated cases, since the dataset is Spanish only.
+- **Workflow**: one customer-service workflow, transaction-dispute intake, in English, Spanish, and Portuguese, for customers in Mexico, Colombia, and Argentina.
+  - English is the base language: the common form and the source wording are in English, so a new language adds only its understanding and its wording.
+  - Every supported language works in rules mode, with fixed wording and rule-based understanding, and has its own evaluation cases.
+  - English and Portuguese run on team-generated cases, since the dataset is Spanish only.
 - **Required cases**: a normal path, an ambiguous or unsupported request, and a human-required case.
 - **Scope limits**: no money movement, refunds, claim decisions, merchant blocking, or live lending decisions.
 - **Stack**:
@@ -115,4 +128,4 @@ Rationale: judges assess measured quality and honesty about what is missing. Num
 - **Reviews**: every plan (`/speckit-plan`) runs its constitution check against Principles I-V. Any violation must be justified in the plan's complexity tracking, or removed.
 - **Owner**: the team owner approves amendments. Today that is the team's only builder.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-30 | **Last Amended**: 2026-09-30
+**Version**: 1.1.0 | **Ratified**: 2026-09-30 | **Last Amended**: 2026-09-30

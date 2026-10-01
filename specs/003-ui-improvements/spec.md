@@ -17,6 +17,8 @@ What the chat does today (checked in the frontend on 2026-09-30):
 - **Phone width**: the side panel drops below the chat, but the chat keeps a fixed height tied to the window, and the header, session bar, and specialist cards were not designed for about 360-400 px.
 - **Accessibility**: new assistant messages are not announced to screen readers, the text box has only a placeholder, not a label, message language is not marked, and colour contrast has not been checked in either theme.
 
+> **Superseded in part (2026-09-30)**: [specs/004-browser-language](../004-browser-language/spec.md) replaces FR-201 to FR-203 (the app language now comes from the browser, the switcher, or the language the customer writes in, and covers every screen) and the rule that messages already shown are never re-translated.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - The whole chat in my language (Priority: P1)

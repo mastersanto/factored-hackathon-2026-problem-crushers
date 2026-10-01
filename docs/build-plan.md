@@ -93,6 +93,20 @@ customer (web chat, ES/PT)
 
 - **Fix after 003 (2026-09-30)**: sign-in no longer fails silently. A 429 from the per-visitor session limit says there were too many conversations from this connection, and any other failure says the conversation could not be opened. Covered by `frontend/e2e/signin-errors.spec.ts`, with the API stubbed. The 429 text says "más tarde", not "unos minutos": the window slides over an hour. The limit now keys on the last `X-Forwarded-For` entry (the one Azure's ingress appends); the first entry is client-supplied and let anyone reset the limit with a forged header.
 
+### The whole app in three languages (feature 004, 2026-09-30, spec only)
+
+- **The owner's request**: the app language comes from the browser (English if it offers none of the three), then follows the language the customer writes in, with an ES/PT/EN switcher. The conversation itself runs in English too, and switching re-shows the whole earlier conversation in the new language.
+- **Owner's architectural direction**: an interpreter that turns every message into one common English form, and a translator that takes the target language as a parameter. Separate services or parts of the current one: decided in the plan.
+- **Decisions in the spec** (details in `specs/004-browser-language/spec.md`):
+  - safety checks (secret requests, other customers, injection, the negation that files a claim) run in code on the original words, never only on a translation;
+  - every reply has fixed wording in all three languages, so rules mode works in English;
+  - the record is the original messages plus the verified statements; every other language is a rendering of them, so earlier assistant messages re-show deterministically, and customer messages show a marked model translation with the original one tap away;
+  - the PDF is produced in the language at download time, with the customer's original words and a marked translation.
+  - English is the base language: the common form has English names and English is the source wording; understanding goes straight from any language to that form, never through an English translation of the customer's text;
+  - the demo path is Spanish, then a switch to Portuguese, so re-showing the conversation (story 5) is P1 and does not wait for the English conversation.
+- **Needed before implementation**: a constitution amendment adding English to the Hackathon Constraints (MINOR), and English evaluation cases.
+- **Risk**: submissions close 2026-10-05 and the video is not recorded. Stories ship in priority order, each only after every gate passes.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

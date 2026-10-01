@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-The build for the Factored AI & Data Hackathon 2026, team **Problem Crushers**: "Explain this charge", a transaction-dispute intake assistant for LATAM Bank customers in Mexico, Colombia, and Argentina, in Spanish and Portuguese.
+The build for the Factored AI & Data Hackathon 2026, team **Problem Crushers**: "Explain this charge", a transaction-dispute intake assistant for LATAM Bank customers in Mexico, Colombia, and Argentina, in Spanish and Portuguese (English is being added in feature 004).
 
 - **Public repository name**: `factored-hackathon-2026-problem-crushers`, as the organizers require.
 - **Deadline**: submissions close 2026-10-05, midnight Colombia time.
@@ -14,11 +14,12 @@ The build for the Factored AI & Data Hackathon 2026, team **Problem Crushers**: 
 
 This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration).
 
-- **The constitution** (`.specify/memory/constitution.md`, v1.0.0) overrides other guidance. This file must stay consistent with it.
+- **The constitution** (`.specify/memory/constitution.md`, v1.1.0) overrides other guidance. This file must stay consistent with it.
 - **Features**, each with spec, plan, research, data model, contracts, quickstart, and tasks:
   - `specs/001-dispute-intake-assistant/`: the assistant, as built. Open: T034-T035 (only if the financial specialist's answers arrive), T042 video and T044 submission (owner).
   - `specs/002-chat-transcript-pdf/`: the conversation as a PDF with a check code (HMAC; the bank keeps only fingerprints). Done and deployed. Open: T036, a reader check with 5 or more people (owner).
   - `specs/003-ui-improvements/`: UI in the customer's language, source labels, phone width, accessibility. Merged and deployed. Open items in its `pending.md` (manual checks and a label test, owner).
+  - `specs/004-browser-language/`: the whole app and the conversation in English, Spanish, and Portuguese; language from the browser, then from what the customer writes, with a switcher; switching re-shows the conversation. Spec, plan, and tasks (T001-T057, three increments) done; constitution v1.1.0 adds English. Next: `/speckit-implement`, increment 1 first.
 - **`.specify/feature.json`** (git-ignored) points the `/speckit-*` commands at the current feature. Update it when starting a new one.
 - **Keeping tasks current**: check off a task in `tasks.md` when its work lands. Update the spec or plan when scope or architecture changes, and record decisions in `docs/build-plan.md`.
 
