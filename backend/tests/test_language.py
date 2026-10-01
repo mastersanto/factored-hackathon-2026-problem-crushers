@@ -489,3 +489,47 @@ def test_specialist_translations_with_a_model_and_in_rules_mode(monkeypatch):
     assert len(sent) == n                                                             # cached
     assert "translations" not in card(client.get("/api/handoffs").json())             # without lang: as before
     api._handoff_translations.clear()
+
+
+# ---- specs/005: example messages in every language ----------------------------------------------------------
+def test_demo_examples_are_well_formed():
+    items = client.get("/api/demo/customers").json()
+    assert items
+    for d in items:
+        ex = d["examples"]
+        assert set(ex) == {"en", "es", "pt"} and len(ex["en"]) == len(ex["es"]) == len(ex["pt"]), d["scenario"]
+        es = ex["es"]
+        assert es[-2].startswith("Me llamaron") and "CLI-OTROCLIENTE0" in es[-1]          # always: scam, other customer
+        assert any(e.startswith("No reconozco") for e in es) == (d["hint"].get("amount") is not None)
+        assert any(e.startswith("Recibí un") for e in es) == bool(d["hint"].get("channel"))
+
+
+def _outcome(events: list[dict]) -> tuple:
+    """What tapping an example led to, in language-neutral terms."""
+    steps = [e for e in events if e["type"] == "step"]
+    return (
+        tuple(sorted({st["source"] for e in events if e["type"] == "message" for st in e["statements"]
+                      if (st.get("source") or "").startswith("transaction:")})),
+        tuple(c["option"] for e in events if e["type"] == "candidates" for c in e["items"]),
+        tuple(e["verdict"] for e in events if e["type"] == "verdict"),
+        tuple(e.get("action") for e in steps if e.get("action")),
+    )
+
+
+def test_every_example_is_understood_like_spanish():
+    """SC-502: each example, in each language, has the same outcome as its Spanish counterpart, and tapping it never
+    switches the conversation's language."""
+    checked = 0
+    for d in client.get("/api/demo/customers").json():
+        for i in range(len(d["examples"]["es"])):
+            outcomes = {}
+            for lang in ("es", "pt", "en"):
+                sid = client.post("/api/session", json={"customer_id": d["customer_id"], "lang": lang}).json()["session_id"]
+                ev = say(sid, d["examples"][lang][i])
+                assert of(ev, "done")[-1]["lang"] == lang, (d["scenario"], lang, d["examples"][lang][i])
+                outcomes[lang] = _outcome(ev)
+                if "CLI-OTROCLIENTE0" in d["examples"][lang][i]:
+                    assert "other_customer_reference" in api.sessions.get(sid).security_flags
+            assert outcomes["en"] == outcomes["es"] == outcomes["pt"], (d["scenario"], i, outcomes)
+            checked += 1
+    assert checked >= 20

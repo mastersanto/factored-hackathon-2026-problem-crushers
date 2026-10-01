@@ -8,7 +8,13 @@ import { TEXT, type TextSet } from '../src/i18n'
 // the same way the app builds its example messages.
 
 /** A demo customer as the sign-in card shows it: `label` is the card's text in the page's language (specs/004). */
-export interface DemoCustomer { first_name: string; label: string; scenario: ScenarioId; hint: Record<string, string | number | null> }
+export interface DemoCustomer {
+  first_name: string
+  label: string
+  scenario: ScenarioId
+  hint: Record<string, string | number | null>
+  examples: Record<Lang, string[]>
+}
 
 /** Demo scenarios, by the label the API gives each customer. */
 export const SCENARIO = {

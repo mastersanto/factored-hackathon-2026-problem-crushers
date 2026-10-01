@@ -114,6 +114,15 @@ customer (web chat, ES/PT)
   - the evaluation found two real defects, both fixed in general with regression tests: English answers could not be graded as pending or caught as promises or requests for secrets, and English codes typed by a customer were not masked in the PDF;
   - found on the way: `make test` called the paid model whenever `.env.local` had a key; `backend/tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model.
 
+### Suggestions in the customer's language (feature 005, 2026-10-01)
+
+- **The owner's request**: answer suggestions in the language the customer is writing in.
+- **Finding**: quick replies already followed the language (004). The starter example messages were a fixed mix, mostly Spanish, so tapping one switched an English or Portuguese conversation to Spanish.
+- **Decisions**:
+  - the mixed-language examples are dropped: the EN / ES / PT switcher gives each language's examples in one tap;
+  - the examples are built by the demo API in all three languages, so a backend test can send each one through the real workflow and require the same outcome as Spanish and no language switch;
+  - amounts in each language's format; English contact dates with the month name.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

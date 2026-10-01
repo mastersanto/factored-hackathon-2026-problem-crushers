@@ -36,6 +36,8 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
   const [stage, setStage] = useState('start')
   // Quick replies for the assistant's latest question; null means "use the starter examples".
   const [replies, setReplies] = useState<string[] | null>(null)
+  // The language the quick replies came in, to mark them for screen readers (specs/005, FR-507).
+  const [repliesLang, setRepliesLang] = useState<Lang>(lang)
   // At least one turn has finished: the transcript has something to export.
   const [completed, setCompleted] = useState(false)
   // The language the turns are shown in, and the server session's language. When the app language differs from
@@ -54,6 +56,7 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
       if (!live) return
       setTurns(fromView(view))
       setReplies(view.suggestions)
+      setRepliesLang(view.lang)
       setServerLang(view.lang)
       setShownLang(view.lang)
       if (view.turns.length) setAnnouncement(TEXT[view.lang].reshow.announced)
@@ -69,6 +72,7 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
     const push = (e: ChatEvent) => {
       if (e.type === 'done') {
         setStage(e.stage); setReplies(e.suggestions); setCompleted(true)
+        if (e.lang) setRepliesLang(e.lang)
         if (e.lang) setServerLang(e.lang)
         if (e.lang && e.lang !== lang) onLang(e.lang)
       }
@@ -93,7 +97,7 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
   }, [sessionId, busy, lang, onLang])
 
   const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null); setCompleted(false) }, [])
-  return { turns, busy, stage, replies, lang, completed, send, reset, announcement }
+  return { turns, busy, stage, replies, repliesLang, lang, completed, send, reset, announcement }
 }
 
 /** The furthest workflow step reached in the latest assistant turn, as an index into STEP_ORDER, or null

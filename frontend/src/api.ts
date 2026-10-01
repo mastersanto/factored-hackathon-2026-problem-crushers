@@ -47,6 +47,8 @@ export interface DemoCustomer {
   first_name: string
   country: string
   hint: Record<string, string | number | null>
+  /** Example messages built from this customer's demo data, the same situations in each language (specs/005). */
+  examples: Record<Lang, string[]>
 }
 
 /** The whole conversation in one language (specs/004, contracts/http-api.md). */

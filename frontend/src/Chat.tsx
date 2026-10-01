@@ -15,16 +15,17 @@ interface Props {
   conversationRef: string
   firstName: string
   country: string
-  suggestions: string[]
+  /** Example messages per language; the app language's list is shown (specs/005). */
+  examples: Record<Lang, string[]>
   onChangeCustomer: () => void
 }
 
 /** The customer's chat (specs/003 design, "Screen Chat"). Every fixed text follows the language of the latest
  *  assistant message (FR-201); what the assistant says is shown exactly as the server streamed it. */
-export function Chat({ sessionId, conversationRef, firstName, country, suggestions, onChangeCustomer }: Props) {
+export function Chat({ sessionId, conversationRef, firstName, country, examples, onChangeCustomer }: Props) {
   // Every fixed text follows the app language, which follows the language the customer writes in (specs/004).
   const { lang, setLang } = useLanguage()
-  const { turns, busy, replies, completed, send, announcement } = useChat(sessionId, lang, setLang)
+  const { turns, busy, replies, repliesLang, completed, send, announcement } = useChat(sessionId, lang, setLang)
   const t = TEXT[lang]
   const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
   const [pdfExpired, setPdfExpired] = useState(false)
@@ -100,10 +101,10 @@ export function Chat({ sessionId, conversationRef, firstName, country, suggestio
 
           {!ended && (replies
             ? <div className="chips replies" role="group" aria-label={t.aria.replies}>
-                {replies.map((s) => <button type="button" key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
+                {replies.map((s) => <button type="button" key={s} lang={repliesLang} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
               </div>
             : <div className="chips" role="group" aria-label={t.aria.examples}>
-                {suggestions.map((s) => <button type="button" key={s} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
+                {examples[lang].map((s) => <button type="button" key={s} lang={lang} className="chip" disabled={busy} onClick={() => submit(s)}>{s}</button>)}
               </div>)}
 
           {ended
