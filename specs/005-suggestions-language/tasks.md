@@ -99,7 +99,7 @@
   - `README.md`: add the 005 row to the documents table;
   - `docs/build-plan.md`: record the decision that the demo's mixed-language examples were dropped in favour of the switcher, and that examples are built on the server so they can be tested against the workflow.
 - [X] T010 Run all the gates: `make test`, the frontend build and lint, `npm run check:ui`, and the secret scan. Confirm no file under `backend/app/workflow/`, `language/`, `llm/`, or `policy/` changed (so `make eval` is not needed and its results are unchanged, FR-508).
-- [ ] T011 Ask the owner before redeploying. 004 and 005 can go live together (`make deploy-azure`). After deploying, check the examples in each language on the live URL at 375 px.
+- [X] T011 Ask the owner before redeploying. 004 and 005 can go live together (`make deploy-azure`). After deploying, check the examples in each language on the live URL at 375 px.
 
 ---
 

@@ -364,7 +364,7 @@ A task is checked off only when its gates pass.
   - **`CLAUDE.md`**: the 004 status line and the English PDF name pattern.
 - [X] T055 Run all the gates: `make test`, the frontend build, `npm run check:ui` against `SESSIONS_PER_IP_HOUR=1000 LLM_DISABLED=1 make dev`, `make eval`, and the secret scan.
 - [ ] T056 Ask the owner before `make eval-llm` (about $3 with the larger sets). If approved, run it and confirm SC-403 to SC-406 in Claude mode.
-- [ ] T057 Ask the owner before `make deploy-azure`. After deploying:
+- [X] T057 Ask the owner before `make deploy-azure`. After deploying:
   - wait for 100% traffic on the new revision, and check `/api/health`;
   - walk through quickstart §3 on the live URL at 375 px (EN browser, Spanish claim, switch to PT, then to EN, download the PDF and verify it);
   - confirm a PDF issued before this feature still verifies as a match.

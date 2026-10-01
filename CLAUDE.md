@@ -19,8 +19,8 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
   - `specs/001-dispute-intake-assistant/`: the assistant, as built. Open: T034-T035 (only if the financial specialist's answers arrive), T042 video and T044 submission (owner).
   - `specs/002-chat-transcript-pdf/`: the conversation as a PDF with a check code (HMAC; the bank keeps only fingerprints). Done and deployed. Open: T036, a reader check with 5 or more people (owner).
   - `specs/003-ui-improvements/`: UI in the customer's language, source labels, phone width, accessibility. Merged and deployed. Open items in its `pending.md` (manual checks and a label test, owner).
-  - `specs/004-browser-language/`: the whole app and the conversation in English, Spanish, and Portuguese; language from the browser, then from what the customer writes, with a switcher; switching re-shows the conversation. Built (T001-T054, commits `bf5f7fc`..`97fc934`), not yet deployed. Open: T055-T057 (final gates, then the owner decides on `make eval-llm` and the redeploy).
-  - `specs/005-suggestions-language/`: example messages and quick replies always in the app's current language; examples built per language by the demo API. Built, not yet deployed (deploys together with 004).
+  - `specs/004-browser-language/`: the whole app and the conversation in English, Spanish, and Portuguese; language from the browser, then from what the customer writes, with a switcher; switching re-shows the conversation. Built and deployed (revision 6, `c2994a6`, 2026-10-01). Open: T056, `make eval-llm` with English (costs money, ask the owner).
+  - `specs/005-suggestions-language/`: example messages and quick replies always in the app's current language; examples built per language by the demo API. Built and deployed with 004 (revision 6).
 - **`.specify/feature.json`** (git-ignored) points the `/speckit-*` commands at the current feature. Update it when starting a new one.
 - **Keeping tasks current**: check off a task in `tasks.md` when its work lands. Update the spec or plan when scope or architecture changes, and record decisions in `docs/build-plan.md`.
 
