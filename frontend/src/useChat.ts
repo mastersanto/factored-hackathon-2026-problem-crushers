@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, streamChat, type ChatEvent, type ConversationView, type Lang } from './api'
+import { api, streamChat, type ChatEvent, type ConversationView, type Lang, type Progress } from './api'
 import { TEXT } from './i18n'
 
 /** One side of an exchange. `lang` is the turn's language: the assistant's from its `done` event, and the
@@ -24,8 +24,6 @@ function fromView(view: ConversationView): Turn[] {
   }))
 }
 
-export const STEP_ORDER = ['understand', 'decide', 'act', 'verify', 'escalate'] as const
-
 /** Conversation state for one session. Each assistant turn keeps every streamed event, so the UI
  *  can show the verified statements, candidates, verdicts, handoffs, and the workflow trace. */
 /** `lang` is the app language; `onLang` is called when a reply comes back in another one, so the whole app
@@ -34,6 +32,8 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState('start')
+  // Where the inquiry stands, as the workflow set it (specs/006); kept through error turns, which carry none.
+  const [progress, setProgress] = useState<Progress | null>(null)
   // Quick replies for the assistant's latest question; null means "use the starter examples".
   const [replies, setReplies] = useState<string[] | null>(null)
   // The language the quick replies came in, to mark them for screen readers (specs/005, FR-507).
@@ -56,6 +56,7 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
       if (!live) return
       setTurns(fromView(view))
       setReplies(view.suggestions)
+      setProgress(view.progress)
       setRepliesLang(view.lang)
       setServerLang(view.lang)
       setShownLang(view.lang)
@@ -72,6 +73,7 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
     const push = (e: ChatEvent) => {
       if (e.type === 'done') {
         setStage(e.stage); setReplies(e.suggestions); setCompleted(true)
+        if (e.progress !== undefined) setProgress(e.progress)
         if (e.lang) setRepliesLang(e.lang)
         if (e.lang) setServerLang(e.lang)
         if (e.lang && e.lang !== lang) onLang(e.lang)
@@ -96,22 +98,8 @@ export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lan
     }
   }, [sessionId, busy, lang, onLang])
 
-  const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null); setCompleted(false) }, [])
-  return { turns, busy, stage, replies, repliesLang, lang, completed, send, reset, announcement }
-}
-
-/** The furthest workflow step reached in the latest assistant turn, as an index into STEP_ORDER, or null
- *  before any turn (specs/003, data model "StepProgress"). Internal steps never reach the browser. */
-export function stepProgress(turns: Turn[]): number | null {
-  const last = [...turns].reverse().find((t) => t.role === 'assistant')
-  if (!last) return null
-  let best: number | null = null
-  for (const e of last.events) {
-    if (e.type !== 'step') continue
-    const i = STEP_ORDER.indexOf(e.step)
-    if (i >= 0 && (best === null || i > best)) best = i
-  }
-  return best
+  const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null); setProgress(null); setCompleted(false) }, [])
+  return { turns, busy, stage, progress, replies, repliesLang, lang, completed, send, reset, announcement }
 }
 
 // The same country-to-zone mapping as the transcript PDF (backend/app/transcript/record.py, TIME_ZONES).

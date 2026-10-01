@@ -32,6 +32,41 @@ def day(dt: datetime, lang: str) -> str:
     return f"{dt.day} de {MONTHS[lang][dt.month - 1]} de {dt.year}"
 
 
+def number(amount: float, lang: str) -> str:
+    """An amount without a currency, in the language's format: what the customer wrote carries none."""
+    return money(amount, "", lang).strip()
+
+
+SEARCHED_PARTS = {"en": ("of {}", "at {}", "on {}"), "es": ("de {}", "en {}", "el {}"), "pt": ("de {}", "em {}", "em {}")}
+DETAIL_NAMES = {"en": {"amount": "the amount", "merchant": "the merchant", "date": "the day"},
+                "es": {"amount": "el monto", "merchant": "el comercio", "date": "el día"},
+                "pt": {"amount": "o valor", "merchant": "a loja", "date": "o dia"}}
+OR = {"en": " or ", "es": " o ", "pt": " ou "}
+ALL_DETAILS = {"en": "the exact amount, the merchant, or the day", "es": "el monto exacto, el comercio o el día",
+               "pt": "o valor exato, a loja ou o dia"}
+
+
+def searched_phrase(searched: dict, lang: str) -> str:
+    """"of 250.00 at Cinépolis on June 12, 2026": only the details the search used, in that order."""
+    amount_p, merchant_p, date_p = SEARCHED_PARTS[lang]
+    parts = []
+    if searched.get("amount") is not None:
+        parts.append(amount_p.format(number(searched["amount"], lang)))
+    if searched.get("merchant"):
+        parts.append(merchant_p.format(searched["merchant"]))
+    if searched.get("date"):
+        parts.append(date_p.format(day(datetime.fromisoformat(searched["date"]), lang)))
+    return " ".join(parts)
+
+
+def missing_phrase(missing: list[str], lang: str) -> str:
+    """"the merchant or the day"; with nothing missing, every detail again."""
+    names = [DETAIL_NAMES[lang][k] for k in missing]
+    if not names:
+        return ALL_DETAILS[lang]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + OR[lang] + names[-1]
+
+
 T = {
     "greeting": {
         "en": "Hello {name}. I can help with a charge you don't recognize or think is wrong, and check whether a message or call \"from the bank\" is real. Which charge do you want to review? If you can, tell me the amount, the merchant, or the date.",
@@ -53,6 +88,24 @@ T = {
         "en": "More charges match than I can show. Can you give me another detail (amount, merchant, or day) to narrow it down?",
         "es": "Hay más cargos que coinciden de los que puedo mostrar. ¿Me da otro dato (monto, comercio o día) para acotar?",
         "pt": "Há mais cobranças correspondentes do que consigo mostrar. Pode me dar outro dado (valor, loja ou dia) para restringir?"},
+    # specs/006, research R4: the search replies name what was searched for, and ask only for what is missing.
+    "none_found_with": {
+        "en": "I didn't find a charge {searched} in the last 90 days. Can you tell me {missing}?",
+        "es": "No encontré un cargo {searched} en los últimos 90 días. ¿Me puede decir {missing}?",
+        "pt": "Não encontrei uma cobrança {searched} nos últimos 90 dias. Pode me dizer {missing}?"},
+    "choose_with": {
+        "en": "I found several charges {searched} that could be it. Which one is it? Reply with the number.",
+        "es": "Encontré varios cargos {searched} que podrían ser. ¿Cuál es? Responda con el número.",
+        "pt": "Encontrei várias cobranças {searched} que podem ser. Qual é? Responda com o número."},
+    "too_many_with": {
+        "en": "More charges {searched} match than I can show. Can you tell me {missing} to narrow it down?",
+        "es": "Hay más cargos {searched} de los que puedo mostrar. ¿Me puede decir {missing} para acotar?",
+        "pt": "Há mais cobranças {searched} do que consigo mostrar. Pode me dizer {missing} para restringir?"},
+    # Before a pending question asked again (research R5).
+    "need_answer": {
+        "en": "To continue I need your answer to this question.",
+        "es": "Para continuar necesito su respuesta a esta pregunta.",
+        "pt": "Para continuar preciso da sua resposta a esta pergunta."},
     "tx_core": {
         "en": "The charge is for {amount} at {merchant}, on {when}, in {city} ({country}), through the {channel} channel, with your {product} ending in {last4}.",
         "es": "El cargo es de {amount} en {merchant}, el {when}, en {city} ({country}), por el canal {channel}, con su {product} terminada en {last4}.",

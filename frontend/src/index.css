@@ -325,6 +325,7 @@ button:disabled { cursor: not-allowed; }
 .steps .todo { color: var(--muted); }
 .steps .todo strong { font-weight: 500; }
 .steps .tag { font-size: 12px; font-weight: 600; }
+.steps-outcome { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; padding: 10px 12px; border-radius: var(--radius); background: var(--accent-soft); font-size: 14px; }
 .technical { font-size: 13px; border-top: 1px solid var(--border); padding-top: 12px; }
 .technical summary { cursor: pointer; font-weight: 600; color: var(--accent); min-height: var(--tap); display: flex; align-items: center; }
 .technical ol { padding-left: 18px; margin: 8px 0 0; }

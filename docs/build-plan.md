@@ -123,6 +123,17 @@ customer (web chat, ES/PT)
   - the examples are built by the demo API in all three languages, so a backend test can send each one through the real workflow and require the same outcome as Spanish and no language switch;
   - amounts in each language's format; English contact dates with the month name.
 
+### Progress and replies that follow the inquiry (feature 006, 2026-10-01)
+
+- **The owner's request**: answers and questions based on what the customer writes, and a step indicator that reflects where the inquiry stands.
+- **Finding**: the panel showed the furthest internal step of the latest reply, so it read "Step 4 of 5 · Verify" after almost every reply. Search replies ignored the details given, and an off-topic message at a pending question got the generic out-of-scope answer.
+- **Decisions**:
+  - the panel shows customer stages, one list per path (charge: 5; bank-contact check: 4), the owner's choice (option A). The internal steps stay in the technical trace;
+  - the stage is an inquiry record on the session, set by the engine where it already moves the workflow or files a case, and streamed with each reply and re-show. The browser only displays it;
+  - search replies name the details used (amount without an invented currency, the matched merchant, the day) and ask only for the missing ones, as recipes, so they re-word on a language switch;
+  - "which one?", "was it you?", and "did you share anything?" are asked again after a greeting, an off-topic message, or an unclear answer;
+  - an unclear answer to "did you share anything?" is asked again rather than read as "no", and "shared" in either parser escalates: the safer reading (constitution III), with tests that fail without it.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

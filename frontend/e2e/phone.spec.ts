@@ -39,7 +39,7 @@ test('the claim path fits, and the text box stays in view', async ({ page }) => 
 test('the call check and the specialist view fit', async ({ page }) => {
   await contactPathPt(page)
   await noSideScroll(page)
-  await page.getByRole('button', { name: 'Especialista' }).click()
+  await page.getByRole('button', { name: 'Especialista', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Casos para revisar' })).toBeVisible()
   await noSideScroll(page)
   await tapTargets(page)

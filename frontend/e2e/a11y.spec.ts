@@ -32,7 +32,7 @@ test('chat screens have no accessibility violations', async ({ page }) => {
 
 test('the specialist view has no accessibility violations', async ({ page }) => {
   await claimPath(page)
-  await page.getByRole('button', { name: 'Especialista' }).click()
+  await page.getByRole('button', { name: 'Especialista', exact: true }).click()
   await expect(page.locator('article.case').first()).toBeVisible()
   await axe(page)
 })

@@ -22,10 +22,16 @@ test('labels name their kind and show their reference as text', async ({ page })
 
 test('the explainer opens by keyboard, in the conversation language', async ({ page }) => {
   await contactPathPt(page)
+  // The Portuguese reply re-shows the conversation in Portuguese (specs/004), which replaces the buttons: wait
+  // until that is done, or the key press goes to a button that is about to be replaced.
+  await expect(page.locator('html')).toHaveAttribute('lang', 'pt')
+  await page.waitForLoadState('networkidle')
   const toggle = page.getByRole('button', { name: 'De onde vem esta informação?' })
-  await toggle.focus()
-  await page.keyboard.press('Enter')
-  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(async () => {
+    await toggle.focus()
+    await page.keyboard.press('Enter')
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true', { timeout: 1000 })
+  }).toPass()
   const explain = page.locator('.sources-explain').first()
   await expect(explain.locator('dt')).toHaveCount(3)
   await expect(explain).toContainText('Estimativa')

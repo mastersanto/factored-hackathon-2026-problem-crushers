@@ -50,6 +50,25 @@ def _st(key: str, lang: str, basis: Basis, source: str | None, **params) -> Stat
 
 
 Stage = Literal["start", "choose", "confirm", "statement", "contact_shared", "closed"]
+InquiryPath = Literal["charge", "contact"]
+Outcome = Literal["recognized", "specialist", "urgent", "genuine", "no_record", "warned"]
+TOTALS = {"charge": 5, "contact": 4}
+
+
+@dataclass
+class Inquiry:
+    """Where the customer's inquiry stands, shown in the progress panel (specs/006, data model).
+
+    - `path` is "charge" or "contact"; `stage` is 1-5 for charge and 1-4 for contact, never above the path's total.
+    - `done` is true only at the path's last stage.
+    - `outcome` is set exactly when `done` is true; `case` is the case number when the outcome is "specialist"
+      or "urgent", None otherwise.
+    Set by the engine at the same points that move the workflow stage or file a case, never from reply text."""
+    path: InquiryPath
+    stage: int
+    done: bool = False
+    outcome: Outcome | None = None
+    case: str | None = None
 
 
 @dataclass
@@ -73,6 +92,7 @@ class Session:
     # Translations of the customer's messages for display, by (entry index, language); None records "no usable
     # translation", so it is not tried again (specs/004, research R7). In memory only, like the transcript.
     translations: dict = field(default_factory=dict)
+    inquiry: Inquiry | None = None  # None until a message starts one (specs/006)
 
     def expired(self, now: float | None = None) -> bool:
         return (now or time.time()) - self.last_seen > settings.session_ttl_seconds
@@ -125,6 +145,14 @@ def public_event(event: dict) -> dict:
     return event
 
 
+def progress_view(s: Session) -> dict | None:
+    """The inquiry as the browser receives it (specs/006, contracts/http-api.md)."""
+    i = s.inquiry
+    if i is None:
+        return None
+    return {"path": i.path, "stage": i.stage, "total": TOTALS[i.path], "done": i.done, "outcome": i.outcome, "case": i.case}
+
+
 def _case_id() -> str:
     return "CASO-" + secrets.token_hex(3).upper()
 
@@ -173,6 +201,22 @@ class Engine:
         return interpret(text, stage=s.stage, merchants=self.merchants, today=self.store.as_of,
                          session_customer_id=s.customer.customer_id, llm=self.llm)
 
+    # ---- inquiry progress (specs/006) ---------------------------------------------------------
+    @staticmethod
+    def _progress(s: Session, path: InquiryPath, stage: int) -> None:
+        """Move the inquiry to `stage`; a closed inquiry, or one on another path, is replaced by a new one."""
+        assert 1 <= stage < TOTALS[path], "the last stage is reached only through _finish"
+        i = s.inquiry
+        if i is None or i.done or i.path != path:
+            s.inquiry = Inquiry(path=path, stage=stage)
+        else:
+            i.stage = stage
+
+    @staticmethod
+    def _finish(s: Session, path: InquiryPath, outcome: Outcome, case: str | None = None) -> None:
+        assert (case is not None) == (outcome in ("specialist", "urgent")), "a case exactly for specialist and urgent"
+        s.inquiry = Inquiry(path=path, stage=TOTALS[path], done=True, outcome=outcome, case=case)
+
     # ---- main entry -------------------------------------------------------------------------
     def handle(self, s: Session, text: str) -> Iterator[dict]:
         now = time.time()
@@ -192,10 +236,12 @@ class Engine:
         except Exception as exc:  # safe fallback: never guess, hand to a person
             case = _case_id()
             handoff = self.handoffs.add(self._handoff(s, case, "technical_fallback", open_questions=[f"System error: {type(exc).__name__}"]))
+            self._finish(s, s.inquiry.path if s.inquiry else "charge", "specialist", case)
             yield self._step("escalate", reason="technical_fallback", case_id=case)
             yield self._handoff_event(handoff)
             yield from self._say(s, [_st("fallback", s.lang, "rule", "policy:safe-fallback", case=case)], verify=False)
-        yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang), "lang": s.lang}
+        yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang), "lang": s.lang,
+               "progress": progress_view(s)}
 
     def _turn(self, s: Session, text: str) -> Iterator[dict]:
         u = self._understand(s, text)
@@ -212,9 +258,15 @@ class Engine:
         if u.injection_suspected:
             s.security_flags.append("prompt_injection_attempt")  # logged; the text never becomes an instruction
 
-        if s.stage == "contact_shared":
+        details = bool(u.amount or u.merchant or u.date)
+        # At "did you share anything?", a clear yes or no is the answer, even with a number in it ("I gave them the
+        # code 123456"); only an unclear message may start a new contact check or charge search (research R5).
+        new_inquiry = u.intent == "check_contact" or (u.intent == "dispute_charge" and details)
+        if s.stage == "contact_shared" and (_shared_answer(text) is not None or not new_inquiry):
             yield from self._contact_followup(s, text)
             return
+        if s.stage == "contact_shared":
+            s.stage, s.pending_contact = "start", None
         if s.stage == "statement":
             yield from self._file_claim(s, text)
             return
@@ -229,6 +281,7 @@ class Engine:
                 yield from self._say(s, [_st("choose", s.lang, "rule", "flow")], verify=False)
         elif u.intent == "confirm_mine" and s.stage == "confirm":
             s.stage = "closed"
+            self._finish(s, "charge", "recognized")
             yield self._step("act", action="close_recognized", transaction_id=s.tx["transaction_id"])
             yield from self._say(s, [_st("closed_mine", s.lang, "rule", "policy:recurring-cancel-via-bank")])
         elif u.intent == "reconfirm" and s.stage == "confirm":
@@ -236,21 +289,34 @@ class Engine:
             yield from self._say(s, [_st("ask_confirm", s.lang, "rule", "policy:close-needs-clear-yes")], verify=False)
         elif u.intent == "file_claim" and s.stage == "confirm":
             s.stage = "statement"
+            self._progress(s, "charge", 4)
             yield self._step("decide", action="collect_statement")
             yield from self._say(s, [_st("ask_statement", s.lang, "rule", "policy:handoff-checklist")], verify=False)
         elif u.intent == "dispute_charge" or u.intent in ("confirm_mine", "file_claim", "choose_option"):
             # Confirming, claiming, or choosing only make sense about a charge already on screen.
             s.request_text = text
             yield from self._find(s, u)
+        elif u.intent in ("greeting", "out_of_scope") and s.stage in ("choose", "confirm"):
+            yield from self._reask(s, s.stage)  # a pending question is asked again, not dropped (research R5)
         elif u.intent == "greeting":
             yield from self._say(s, [_st("greeting", s.lang, "rule", "flow", name=s.customer.first_name.split()[0])], verify=False)
         else:
             yield self._step("decide", action="abstain_out_of_scope")
             yield from self._say(s, [_st("out_of_scope", s.lang, "rule", "policy:scope")], verify=False)
 
+    REASK = {"choose": ("choose", "flow"), "confirm": ("ask_confirm", "policy:close-needs-clear-yes"),
+             "contact_shared": ("ask_shared", "policy:handoff-checklist")}
+
+    def _reask(self, s: Session, question: str) -> Iterator[dict]:
+        key, source = self.REASK[question]
+        yield self._step("decide", action="reask_pending", question=question)
+        yield from self._say(s, [_st("need_answer", s.lang, "rule", "flow"), _st(key, s.lang, "rule", source)], verify=False)
+
     # ---- dispute path ---------------------------------------------------------------------
     def _find(self, s: Session, u: Understanding) -> Iterator[dict]:
         if not (u.amount or u.merchant or u.date):
+            if s.inquiry is None or s.inquiry.done:  # a vague message mid-inquiry doesn't restart it (research R3)
+                self._progress(s, "charge", 1)
             yield self._step("decide", action="clarify_missing_details")
             yield from self._say(s, [_st("need_details", s.lang, "rule", "flow")], verify=False)
             return
@@ -259,16 +325,21 @@ class Engine:
         found = banking.find_transactions(self.store, s.customer.customer_id, amount=u.amount, merchant=u.merchant,
                                           date_from=date_from, date_to=date_to)
         yield self._step("act", tool="find_transactions", results=min(len(found), 6))
+        self._progress(s, "charge", 2)
+        # What the search used, repeated back, and what is still missing (specs/006, research R4).
+        searched = {k: v for k, v in (("amount", u.amount), ("merchant", u.merchant),
+                                      ("date", u.date.isoformat() if u.date else None)) if v is not None}
+        missing = [k for k in ("amount", "merchant", "date") if k not in searched]
         if not found:
-            yield from self._say(s, [_st("none_found", s.lang, "rule", "tool:find_transactions")], verify=False)
+            yield from self._say(s, [_st("none_found_with", s.lang, "rule", "tool:find_transactions", searched=searched, missing=missing)], verify=False)
         elif len(found) == 1:
             yield from self._explain(s, found[0])
         elif len(found) <= 5:
             s.stage, s.candidates = "choose", found
             yield {"type": "candidates", "items": [self._card(tx, s.lang, i + 1) for i, tx in enumerate(found)]}
-            yield from self._say(s, [_st("choose", s.lang, "rule", "flow")], verify=False)
+            yield from self._say(s, [_st("choose_with", s.lang, "rule", "flow", searched=searched)], verify=False)
         else:
-            yield from self._say(s, [_st("too_many", s.lang, "rule", "tool:find_transactions")], verify=False)
+            yield from self._say(s, [_st("too_many_with", s.lang, "rule", "tool:find_transactions", searched=searched, missing=missing)], verify=False)
 
     def _card(self, tx: dict, lang: str, n: int) -> dict:
         return {"option": n, "transaction_id": tx["transaction_id"], "when": M.when(tx["transaction_date"], lang),
@@ -283,6 +354,7 @@ class Engine:
             yield from self._compliance_hold(s, tx)
             return
         s.tx, s.stage = tx, "confirm"
+        self._progress(s, "charge", 3)
         lang, src = s.lang, f"transaction:{tx['transaction_id']}"
         when = tx["transaction_date"].isoformat()
         if tx["merchant_name"]:
@@ -316,6 +388,7 @@ class Engine:
         a specialist receives the case with the verified facts, which stay internal."""
         s.tx, s.stage = tx, "closed"
         case = _case_id()
+        self._finish(s, "charge", "specialist", case)
         yield self._internal("act", tool="compliance_review", under_review=True)
         yield self._internal("decide", action="withhold_and_escalate")
         handoff = self.handoffs.add(self._handoff(s, case, "compliance_review",
@@ -350,6 +423,7 @@ class Engine:
             ] if missing])
         self.handoffs.add(handoff)
         s.stage = "closed"
+        self._finish(s, "charge", "specialist", case)
         yield self._step("escalate", case_id=case)
         yield self._internal("escalate", case_id=case, case_type=case_type, priority=handoff["priority"])
         yield self._handoff_event(handoff)
@@ -373,22 +447,31 @@ class Engine:
                 return
             if u.shared_secret is None:
                 s.stage, s.pending_contact = "contact_shared", {"channel": channel, "text": text}
+                self._progress(s, "contact", 3)
                 st.append(_st("ask_shared", lang, "rule", "policy:handoff-checklist"))
+            else:
+                self._finish(s, "contact", "warned")
             yield from self._say(s, st, verify=False)
         elif res["verdict"] == "bank_contact":
             m = res["matches"][0]
+            self._finish(s, "contact", "genuine")
             yield from self._say(s, [_st("verdict_bank_contact", lang, "known", f"outbound:{m['contact_id']}",
                                          channel=m["channel"], day=m["contact_ts"].isoformat())])
         else:
+            self._finish(s, "contact", "no_record")
             yield from self._say(s, [_st("verdict_no_record", lang, "known", "outbound:none-in-window", channel=channel)])
 
     def _contact_followup(self, s: Session, text: str) -> Iterator[dict]:
-        shared = _yes_no(text)
+        shared = _shared_answer(text)
+        if shared is None:  # unclear: asked again, never read as "nothing shared" (constitution III)
+            yield from self._reask(s, "contact_shared")
+            return
         pc = s.pending_contact or {"channel": "any", "text": ""}
         if shared:
             yield from self._escalate_contact(s, pc["text"] + " / " + text, pc["channel"], [])
         else:
             s.stage = "start"
+            self._finish(s, "contact", "warned")
             yield from self._say(s, [_st("freeze_hint", s.lang, "rule", "policy:never-ask-secrets")], verify=False)
 
     def _escalate_contact(self, s: Session, text: str, channel: str, st: list[Statement]) -> Iterator[dict]:
@@ -399,6 +482,7 @@ class Engine:
         handoff["priority"] = "urgent"
         self.handoffs.add(handoff)
         s.stage = "closed"
+        self._finish(s, "contact", "urgent", case)
         yield self._step("escalate", case_id=case, urgent=True)  # the customer is told it is urgent (freeze the card)
         yield self._internal("escalate", case_id=case, case_type="fake_contact_secret_shared", priority="urgent")
         yield self._handoff_event(handoff)
@@ -432,6 +516,12 @@ class Engine:
             "security_flags": s.security_flags,
             **{k: v for k, v in extra.items()},
         }
+
+
+def _shared_answer(text: str) -> bool | None:
+    """The answer to "did you share anything?": a leading yes or no, else an explicit "shared" or "didn't share"."""
+    answer = _yes_no(text)
+    return _yes_no_shared(text) if answer is None else answer
 
 
 def _yes_no_shared(text: str) -> bool | None:

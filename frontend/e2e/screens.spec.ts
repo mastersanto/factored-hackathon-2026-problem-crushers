@@ -27,7 +27,7 @@ test('reference screenshots', async ({ page }, info) => {
   await send(page, OTHER_CUSTOMER)
   await shot(page, info, '2e-refusal')
 
-  await page.getByRole('button', { name: 'Especialista' }).click()
+  await page.getByRole('button', { name: 'Especialista', exact: true }).click()
   await expect(page.locator('article.case').first()).toBeVisible()
   await noSideScroll(page)
   await shot(page, info, '3-specialist')

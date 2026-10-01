@@ -10,7 +10,17 @@ export type ChatEvent =
   | { type: 'verdict'; verdict: 'scam_asks_secret' | 'bank_contact' | 'no_record'; channel: string }
   | { type: 'handoff'; handoff: { case_id: string } }  // the customer sees only the case number
   | { type: 'error'; code: string; text: string }
-  | { type: 'done'; stage: string; suggestions: string[] | null; lang?: Lang }
+  | { type: 'done'; stage: string; suggestions: string[] | null; lang?: Lang; progress?: Progress | null }
+
+/** Where the customer's inquiry stands, set by the workflow (specs/006, contracts/http-api.md). */
+export interface Progress {
+  path: 'charge' | 'contact'
+  stage: number
+  total: number
+  done: boolean
+  outcome: 'recognized' | 'specialist' | 'urgent' | 'genuine' | 'no_record' | 'warned' | null
+  case: string | null
+}
 
 export type Lang = 'en' | 'es' | 'pt'
 
@@ -64,7 +74,7 @@ export interface ViewTurn {
   /** No usable translation: the original is shown, with a note. */
   translation_missing?: boolean
 }
-export interface ConversationView { lang: Lang; stage: string; suggestions: string[] | null; turns: ViewTurn[] }
+export interface ConversationView { lang: Lang; stage: string; suggestions: string[] | null; progress: Progress | null; turns: ViewTurn[] }
 
 export class HttpError extends Error {
   status: number

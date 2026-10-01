@@ -35,6 +35,10 @@ def render_text(key: str, params: dict, lang: str) -> str:
             kw[name] = M.CHANNEL_NAMES[lang].get(value, value)
         elif name == "product":
             kw[name] = M.PRODUCT_NAMES[lang].get(value, value)
+        elif name == "searched":
+            kw[name] = M.searched_phrase(value, lang)
+        elif name == "missing":
+            kw[name] = M.missing_phrase(value, lang)
         elif name == "kind":
             kw[name] = M.TX_KINDS[lang].get(value, value)
         else:
@@ -134,5 +138,7 @@ def conversation_view(session, lang: str, llm) -> dict:
             events.append({"type": "error", "code": e.get("code"), "text": text})
     for t in turns:  # each finished reply carries its done marker, as when it was streamed
         if t["role"] == "assistant":
-            t["events"].append({"type": "done", "stage": None, "suggestions": None, "lang": lang})
-    return {"lang": lang, "stage": session.stage, "suggestions": M.QUICK_REPLIES.get(session.stage, {}).get(lang), "turns": turns}
+            t["events"].append({"type": "done", "stage": None, "suggestions": None, "lang": lang, "progress": None})
+    from app.workflow.engine import progress_view  # the engine imports this module
+    return {"lang": lang, "stage": session.stage, "suggestions": M.QUICK_REPLIES.get(session.stage, {}).get(lang),
+            "progress": progress_view(session), "turns": turns}

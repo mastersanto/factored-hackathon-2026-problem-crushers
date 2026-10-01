@@ -8,7 +8,7 @@ import { VerdictCard } from './components/VerdictCard'
 import { TEXT } from './i18n'
 import { Icon } from './icons'
 import { useLanguage } from './language'
-import { formatTime, stepProgress, useChat, type Turn } from './useChat'
+import { formatTime, useChat, type Turn } from './useChat'
 
 interface Props {
   sessionId: string
@@ -25,7 +25,7 @@ interface Props {
 export function Chat({ sessionId, conversationRef, firstName, country, examples, onChangeCustomer }: Props) {
   // Every fixed text follows the app language, which follows the language the customer writes in (specs/004).
   const { lang, setLang } = useLanguage()
-  const { turns, busy, replies, repliesLang, completed, send, announcement } = useChat(sessionId, lang, setLang)
+  const { turns, busy, progress, replies, repliesLang, completed, send, announcement } = useChat(sessionId, lang, setLang)
   const t = TEXT[lang]
   const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
   const [pdfExpired, setPdfExpired] = useState(false)
@@ -80,7 +80,7 @@ export function Chat({ sessionId, conversationRef, firstName, country, examples,
         </div>
       </section>
 
-      <StepsPanel variant="drawer" progress={stepProgress(turns)} trace={lastAssistant?.events ?? []} lang={lang} />
+      <StepsPanel variant="drawer" progress={progress} trace={lastAssistant?.events ?? []} lang={lang} />
 
       <div className="chat-grid">
         <section className="panel conversation" aria-label={t.aria.messages}>
@@ -121,7 +121,7 @@ export function Chat({ sessionId, conversationRef, firstName, country, examples,
               </form>}
         </section>
 
-        <StepsPanel variant="rail" progress={stepProgress(turns)} trace={lastAssistant?.events ?? []} lang={lang} />
+        <StepsPanel variant="rail" progress={progress} trace={lastAssistant?.events ?? []} lang={lang} />
       </div>
     </>
   )

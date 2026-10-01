@@ -33,6 +33,7 @@ What this prototype does not do, what its numbers do not prove, and what a bank 
   - numeric dates are read day first in every language, since every customer is in Mexico, Colombia, or Argentina ("06/12" is 6 December, even in English);
   - the PDF uses only the translations already made for the screen and never calls a model; a customer message never translated shows "no translation" in it;
   - the specialist's translations of a case are kept in memory only and redone after a restart.
+- **Progress panel (specs/006)**: the bank-contact path's second stage ("We check the bank's records") has no state of its own, since the check resolves within one reply; the panel goes from the first message straight to the answer or the "did you share anything?" question.
 - **One workflow only**: dispute intake. The assistant does not decide claims, refund, block merchants, or move money, and it cannot cancel a recurring charge itself. It hands those requests to a person.
 - **The synthetic fee schedule was not built.** For the bank's own charges (fees, interest), the assistant files a complete claim but does not explain the fee.
 - **No real channels.** It is web chat only; there is no WhatsApp, phone, or email integration.

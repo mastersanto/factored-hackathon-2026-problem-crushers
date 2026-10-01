@@ -38,11 +38,13 @@ export interface TextSet {
   steps: {
     title: string
     subtitle: string
-    names: [string, string, string, string, string]
-    lines: [string, string, string, string, string]
+    // One ordered list per inquiry path (specs/006, research R2); the outcome line closes a finished inquiry.
+    charge: { names: [string, string, string, string, string]; lines: [string, string, string, string, string] }
+    contact: { names: [string, string, string, string]; lines: [string, string, string, string] }
+    outcomes: Record<'recognized' | 'specialist' | 'urgent' | 'genuine' | 'no_record' | 'warned', (c: string | null) => string>
     done: string
     now: string
-    progress: (n: number, name: string) => string
+    progress: (n: number, total: number, name: string) => string
     notStarted: string
     technical: string
   }
@@ -162,18 +164,37 @@ export const TEXT: Record<Lang, TextSet> = {
     },
     steps: {
       title: 'How we review your case',
-      subtitle: 'How the assistant works, step by step.',
-      names: ['Understand', 'Decide', 'Act', 'Verify', 'Escalate'],
-      lines: [
-        'We read your message to know what you need.',
-        'We choose which records to check.',
-        'We look up your transactions and the bank\'s contacts.',
-        'Every fact we show you comes from a record.',
-        'If needed, a specialist takes your case.',
-      ],
+      subtitle: 'Where your inquiry stands.',
+      charge: {
+        names: ['Tell us what happened', 'We find the charge', 'You confirm if it was you', 'You give your account', 'Case closed or sent to a specialist'],
+        lines: [
+          'Write what you see on your statement: amount, merchant, or day.',
+          'We look for it among your charges of the last 90 days.',
+          'We show you the charge and ask if you made it.',
+          'If it wasn\'t you, tell us in your own words what happened.',
+          'You get a case number, or the charge is closed as yours.',
+        ],
+      },
+      contact: {
+        names: ['Tell us about the contact', 'We check the bank\'s records', 'You tell us if you shared anything', 'Done, or sent to a specialist'],
+        lines: [
+          'Tell us how they contacted you and when.',
+          'We check whether the bank really contacted you.',
+          'If they asked for a code, tell us whether you gave it.',
+          'You know whether it was the bank, and what to do next.',
+        ],
+      },
+      outcomes: {
+        recognized: () => 'Closed · you recognized the charge',
+        specialist: (c) => `Sent to a specialist · case ${c}`,
+        urgent: (c) => `Urgent: sent to a specialist · case ${c}`,
+        genuine: () => 'The contact was the bank\'s',
+        no_record: () => 'No record of that contact from the bank',
+        warned: () => 'Closed · not the bank; keep your codes private',
+      },
       done: 'Done',
       now: 'Now',
-      progress: (n, name) => `Step ${n} of 5 · ${name}`,
+      progress: (n, total, name) => `Step ${n} of ${total} · ${name}`,
       notStarted: 'Starts with your first message',
       technical: 'Technical detail (demo)',
     },
@@ -319,18 +340,37 @@ export const TEXT: Record<Lang, TextSet> = {
     },
     steps: {
       title: 'Cómo revisamos su caso',
-      subtitle: 'Así trabaja el asistente, paso a paso.',
-      names: ['Entender', 'Decidir', 'Actuar', 'Verificar', 'Escalar'],
-      lines: [
-        'Leemos su mensaje para saber qué necesita.',
-        'Elegimos qué registros hay que revisar.',
-        'Consultamos sus movimientos y los contactos del banco.',
-        'Cada dato que le mostramos sale de un registro.',
-        'Si hace falta, un especialista toma su caso.',
-      ],
+      subtitle: 'Dónde va su consulta.',
+      charge: {
+        names: ['Cuéntenos qué pasó', 'Buscamos el cargo', 'Confirme si fue usted', 'Nos da su versión', 'Caso cerrado o con un especialista'],
+        lines: [
+          'Escriba lo que ve en su estado de cuenta: monto, comercio o día.',
+          'Lo buscamos entre sus cargos de los últimos 90 días.',
+          'Le mostramos el cargo y le preguntamos si lo hizo usted.',
+          'Si no fue usted, cuéntenos con sus palabras qué pasó.',
+          'Recibe un número de folio, o el cargo se cierra como suyo.',
+        ],
+      },
+      contact: {
+        names: ['Cuéntenos del contacto', 'Revisamos los registros del banco', 'Díganos si compartió algo', 'Listo, o con un especialista'],
+        lines: [
+          'Díganos cómo le contactaron y cuándo.',
+          'Revisamos si el banco de verdad le contactó.',
+          'Si le pidieron un código, díganos si lo dio.',
+          'Sabe si fue el banco y qué hacer ahora.',
+        ],
+      },
+      outcomes: {
+        recognized: () => 'Cerrado · reconoció el cargo',
+        specialist: (c) => `Con un especialista · folio ${c}`,
+        urgent: (c) => `Urgente: con un especialista · folio ${c}`,
+        genuine: () => 'El contacto fue del banco',
+        no_record: () => 'El banco no tiene registro de ese contacto',
+        warned: () => 'Cerrado · no era el banco; no comparta sus códigos',
+      },
       done: 'Listo',
       now: 'Ahora',
-      progress: (n, name) => `Paso ${n} de 5 · ${name}`,
+      progress: (n, total, name) => `Paso ${n} de ${total} · ${name}`,
       notStarted: 'Empieza con su primer mensaje',
       technical: 'Detalle técnico (demo)',
     },
@@ -476,18 +516,37 @@ export const TEXT: Record<Lang, TextSet> = {
     },
     steps: {
       title: 'Como revisamos o seu caso',
-      subtitle: 'Assim trabalha o assistente, passo a passo.',
-      names: ['Entender', 'Decidir', 'Agir', 'Verificar', 'Encaminhar'],
-      lines: [
-        'Lemos a sua mensagem para saber do que você precisa.',
-        'Escolhemos quais registros revisar.',
-        'Consultamos as suas movimentações e os contatos do banco.',
-        'Cada dado que mostramos vem de um registro.',
-        'Se necessário, um especialista assume o seu caso.',
-      ],
+      subtitle: 'Onde está a sua consulta.',
+      charge: {
+        names: ['Conte o que aconteceu', 'Buscamos a cobrança', 'Confirme se foi você', 'Você dá a sua versão', 'Caso encerrado ou com um especialista'],
+        lines: [
+          'Escreva o que você vê no extrato: valor, loja ou dia.',
+          'Buscamos entre as suas cobranças dos últimos 90 dias.',
+          'Mostramos a cobrança e perguntamos se foi você.',
+          'Se não foi você, conte com as suas palavras o que houve.',
+          'Você recebe um número de protocolo, ou a cobrança é encerrada como sua.',
+        ],
+      },
+      contact: {
+        names: ['Conte sobre o contato', 'Verificamos os registros do banco', 'Diga se compartilhou algo', 'Pronto, ou com um especialista'],
+        lines: [
+          'Diga como entraram em contato e quando.',
+          'Verificamos se o banco realmente entrou em contato.',
+          'Se pediram um código, diga se você o passou.',
+          'Você sabe se foi o banco e o que fazer agora.',
+        ],
+      },
+      outcomes: {
+        recognized: () => 'Encerrado · você reconheceu a cobrança',
+        specialist: (c) => `Com um especialista · protocolo ${c}`,
+        urgent: (c) => `Urgente: com um especialista · protocolo ${c}`,
+        genuine: () => 'O contato foi do banco',
+        no_record: () => 'O banco não tem registro desse contato',
+        warned: () => 'Encerrado · não era o banco; não compartilhe seus códigos',
+      },
       done: 'Pronto',
       now: 'Agora',
-      progress: (n, name) => `Passo ${n} de 5 · ${name}`,
+      progress: (n, total, name) => `Passo ${n} de ${total} · ${name}`,
       notStarted: 'Começa com a sua primeira mensagem',
       technical: 'Detalhe técnico (demo)',
     },

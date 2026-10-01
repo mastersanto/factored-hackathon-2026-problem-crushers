@@ -191,7 +191,9 @@ def main() -> None:
               "",
               "- **English codes left in the PDF (SC-104).** The masking that hides codes a customer types only knew the Spanish and Portuguese words for a secret, so 3 of 12 seeded English codes reached the PDF. English words (code, password, passcode, CVV) and a 3-4 digit CVV rule were added, with a regression test; 0 of 12 now.",
               "",
-              "- **The test suite called the model.** `make test` imported the settings before rules mode was forced, so with a key in `.env.local` it made real model calls. A `tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model."]
+              "- **The test suite called the model.** `make test` imported the settings before rules mode was forced, so with a key in `.env.local` it made real model calls. A `tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model.",
+              "",
+              "- **Re-asking \"did you share anything?\" (specs/006), first run: scam cases with a shared code fell to 50%.** A new inquiry could start at that question, and the digits of the code (\"I gave them the code 482913\") read as a charge amount, so a clear \"yes\" became a charge search instead of an urgent handoff. Fixed in general: a clear yes or no is always the answer, and only an unclear message may start a new inquiry; a regression test covers all three languages. The numbers above are from the rerun, unchanged from before the feature."]
     if all(f.exists() for f in first.values()):
         r1 = {n: json.loads(f.read_text())["repeats"][0]["aggregate"] for n, f in first.items()}
         lines += ["",
