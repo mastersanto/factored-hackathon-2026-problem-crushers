@@ -62,3 +62,11 @@ def rights_for(country: str, tx: dict, claim_time: datetime) -> list[Rule]:
 
 def answer_deadline(country: str, claim_time: datetime) -> datetime:
     return claim_time + timedelta(days=ANSWER_DEADLINE_DAYS.get(country, 30))
+
+
+def rule_text(rule_id: str, lang: str) -> str:
+    """The text of a rule by its id, in `lang`: the wording a statement citing `rule:<id>` shows."""
+    for rule in [r for rules in RULES.values() for r in rules] + [PROVISIONAL_CREDIT_MX]:
+        if rule.id == rule_id:
+            return rule.text[lang]
+    raise KeyError(rule_id)

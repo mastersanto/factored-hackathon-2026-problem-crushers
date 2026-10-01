@@ -48,6 +48,8 @@ Everything here lives in memory for the session, like today, except the stored l
 
 ## Transcript entry (server recorder, extended; specs/002)
 
+> **As built (T010)**: the new fields live in a parallel `recipes` list, one per entry and aligned with `entries`, not inside the entries. The entries stay exactly what the customer saw (an existing test forbids internal words such as the template key `compliance_neutral` in them), and the PDF is built from them.
+
 | Kind | Fields kept (new in **bold**) |
 |---|---|
 | `customer` | `ts`, `text` (masked original), **`lang`** (the message's detected language, or the session's when unclear) |

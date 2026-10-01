@@ -8,6 +8,7 @@
 # Transcript PDFs downloaded from the demo hold synthetic customer rows
 conversacion-*.pdf
 conversa-*.pdf
+conversation-*.pdf
 
 # Secrets
 .env

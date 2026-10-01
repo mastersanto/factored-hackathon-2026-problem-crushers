@@ -2,8 +2,9 @@ import { defineConfig } from '@playwright/test'
 
 // UI acceptance checks (specs/003, research R9). Run `make dev` first, in rules mode: the checks
 // drive the real app against the local API, at desktop and phone width, in light and dark themes.
-const desktop = { viewport: { width: 1200, height: 900 } }
-const phone = { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true }
+// Every existing check runs in a Spanish (Mexico) browser: the app's language now follows the browser (specs/004, R13).
+const desktop = { viewport: { width: 1200, height: 900 }, locale: 'es-MX' }
+const phone = { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'es-MX' }
 
 export default defineConfig({
   testDir: 'e2e',

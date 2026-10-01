@@ -407,3 +407,40 @@ def test_eval_transcript_check_flags_leaks_and_unmasked_secrets():
     seeded = tc.check_case({"category": "contact_scam_secret", "expected": {"seeded_secret": "482913"}},
                            [{"text": "sí, le di el código 482913", "events": [MSG]}], who)
     assert seeded["masked"] is True
+
+
+# ---- r1 is frozen (specs/004, T001) ------------------------------------------------------------
+# A schema-1 transcript with made-up text only. Its rendered bytes are pinned: PDFs issued before
+# specs/004 must keep re-rendering byte for byte, so verification keeps saying "match" (FR-426).
+R1_SNAPSHOT = {
+    "schema": 1, "renderer": "fpdf2-2.8.9/r1", "conversation_ref": "CONV-PIN00001",
+    "customer": {"first_name": "Ana", "country": "Argentina"}, "time_zone": "America/Argentina/Buenos_Aires",
+    "lang": "pt", "case_ids": ["CASO-PIN001"], "masked": True,
+    "entries": [
+        {"kind": "customer", "at": "2026-09-30T10:00:00-03:00", "text": "Não reconheço uma cobrança de 10,00 ARS na Loja Teste"},
+        {"kind": "message", "at": "2026-09-30T10:00:02-03:00", "text": "A cobrança é de 10,00 ARS na Loja Teste.",
+         "statements": [{"text": "Cobrança de 10,00 ARS", "basis": "known", "source": "transaction:TX-PIN"},
+                        {"text": "Parece incomum", "basis": "guessed", "source": "model:test"},
+                        {"text": "Prazo de 30 dias", "basis": "rule", "source": "rule:AR-25065-26"}]},
+        {"kind": "candidates", "at": "2026-09-30T10:00:03-03:00",
+         "items": [{"option": 1, "amount": "10,00 ARS", "merchant": "Loja Teste", "when": "ontem", "status": "Pending"}]},
+        {"kind": "customer", "at": "2026-09-30T10:01:00-03:00", "text": "passei o código ••••"},
+        {"kind": "verdict", "at": "2026-09-30T10:01:01-03:00", "verdict": "scam_asks_secret", "channel": "sms"},
+        {"kind": "handoff", "at": "2026-09-30T10:01:02-03:00", "case_id": "CASO-PIN001"},
+        {"kind": "notice", "at": "2026-09-30T10:01:03-03:00", "code": "turn_limit", "text": "Limite atingido"},
+    ],
+    "generated_at": "2026-09-30T10:02:00-03:00",
+}
+R1_SHA256 = "b254c14c94ea444967cac3c3a544567493da610e0f24caa1ee680a2cf508cd04"  # recorded before specs/004 changed anything
+
+
+def _r1_signed() -> dict:
+    from app.transcript.fingerprint import check_code, fingerprint
+    return {**R1_SNAPSHOT, "check_code": check_code(fingerprint(R1_SNAPSHOT, key=b"specs-004-pin"))}
+
+
+def test_r1_render_is_frozen():
+    import hashlib
+    from app.transcript.render import render
+    digest = hashlib.sha256(render(_r1_signed())).hexdigest()
+    assert digest == R1_SHA256

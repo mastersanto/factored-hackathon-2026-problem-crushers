@@ -18,16 +18,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Iterator, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.config import BACKEND_DIR, settings
 from app.data.store import Store
+from app.language.interpreter import interpret
+from app.language.translator import render_text
 from app.ml.fraud import load_fraud_risk
 from app.policy import rules as policy
 from app.tools import banking
 from app.transcript.record import TranscriptRecorder
 from app.workflow import messages as M
-from app.workflow.understanding import Understanding, understand as understand_rules
+from app.workflow.understanding import Understanding
 
 Basis = Literal["known", "guessed", "rule"]
 
@@ -36,6 +38,15 @@ class Statement(BaseModel):
     text: str
     basis: Basis
     source: str | None = None
+    # The recipe (specs/004, R6): the template key, or `rule:<id>`, and the raw verified values. Kept server-side
+    # so the statement can be re-worded in any language with the same facts; never sent to the browser.
+    key: str | None = None
+    params: dict = Field(default_factory=dict)
+
+
+def _st(key: str, lang: str, basis: Basis, source: str | None, **params) -> Statement:
+    """A statement built from its recipe, worded in `lang` by the translator (the one path from facts to text)."""
+    return Statement(text=render_text(key, params, lang), basis=basis, source=source, key=key, params=params)
 
 
 Stage = Literal["start", "choose", "confirm", "statement", "contact_shared", "closed"]
@@ -100,6 +111,17 @@ class HandoffQueue:
         return handoff
 
 
+def public_event(event: dict) -> dict:
+    """What the browser receives: the event without the server-side recipes (specs/004, R6). Statements lose
+    `key` and `params`, and charge options lose `raw`, so the stream is exactly what it was before. The API
+    streams this, and the evaluation grades it."""
+    if event.get("type") == "message":
+        return {**event, "statements": [{k: v for k, v in st.items() if k not in ("key", "params")} for st in event["statements"]]}
+    if event.get("type") == "candidates":
+        return {**event, "items": [{k: v for k, v in c.items() if k != "raw"} for c in event["items"]]}
+    return event
+
+
 def _case_id() -> str:
     return "CASO-" + secrets.token_hex(3).upper()
 
@@ -145,23 +167,8 @@ class Engine:
         yield {"type": "message", "text": text, "statements": [st.model_dump() for st in statements]}
 
     def _understand(self, s: Session, text: str) -> Understanding:
-        expecting = {"choose": "choose", "confirm": "confirm", "statement": "statement"}.get(s.stage)
-        rules_u = understand_rules(text, self.merchants, self.store.as_of, expecting, s.customer.customer_id)
-        if self.llm and s.stage not in ("statement", "contact_shared"):
-            llm_u = self.llm.understand(text, s.stage, self.merchants, self.store.as_of)
-            if llm_u:
-                # Security flags from the deterministic scan are never dropped by the model.
-                llm_u.other_customer_reference |= rules_u.other_customer_reference
-                llm_u.injection_suspected |= rules_u.injection_suspected
-                if s.stage == "confirm":
-                    # Closing as "it was mine" ends a possible fraud claim, so the model alone cannot do it:
-                    # a deterministic negation always files the claim, and closing needs both to agree.
-                    if rules_u.intent == "file_claim":
-                        llm_u.intent = "file_claim"
-                    elif llm_u.intent == "confirm_mine" and rules_u.intent != "confirm_mine":
-                        llm_u.intent = "reconfirm"
-                return llm_u
-        return rules_u
+        return interpret(text, stage=s.stage, merchants=self.merchants, today=self.store.as_of,
+                         session_customer_id=s.customer.customer_id, llm=self.llm)
 
     # ---- main entry -------------------------------------------------------------------------
     def handle(self, s: Session, text: str) -> Iterator[dict]:
@@ -178,13 +185,13 @@ class Engine:
         except banking.Unauthorized:
             s.security_flags.append("unauthorized_tool_access")
             yield self._step("decide", action="refuse_unauthorized")
-            yield from self._say(s, [Statement(text=M.t("unauthorized", s.lang), basis="rule", source="policy:own-data-only")], verify=False)
+            yield from self._say(s, [_st("unauthorized", s.lang, "rule", "policy:own-data-only")], verify=False)
         except Exception as exc:  # safe fallback: never guess, hand to a person
             case = _case_id()
             handoff = self.handoffs.add(self._handoff(s, case, "technical_fallback", open_questions=[f"System error: {type(exc).__name__}"]))
             yield self._step("escalate", reason="technical_fallback", case_id=case)
             yield self._handoff_event(handoff)
-            yield from self._say(s, [Statement(text=M.t("fallback", s.lang, case=case), basis="rule", source="policy:safe-fallback")], verify=False)
+            yield from self._say(s, [_st("fallback", s.lang, "rule", "policy:safe-fallback", case=case)], verify=False)
         yield {"type": "done", "stage": s.stage, "suggestions": M.QUICK_REPLIES.get(s.stage, {}).get(s.lang), "lang": s.lang}
 
     def _turn(self, s: Session, text: str) -> Iterator[dict]:
@@ -197,7 +204,7 @@ class Engine:
         if u.other_customer_reference:
             s.security_flags.append("other_customer_reference")
             yield self._step("decide", action="refuse_unauthorized")
-            yield from self._say(s, [Statement(text=M.t("unauthorized", s.lang), basis="rule", source="policy:own-data-only")], verify=False)
+            yield from self._say(s, [_st("unauthorized", s.lang, "rule", "policy:own-data-only")], verify=False)
             return
         if u.injection_suspected:
             s.security_flags.append("prompt_injection_attempt")  # logged; the text never becomes an instruction
@@ -216,33 +223,33 @@ class Engine:
                 yield self._step("decide", action="explain_candidate", option=u.option)
                 yield from self._explain(s, s.candidates[idx])
             else:
-                yield from self._say(s, [Statement(text=M.t("choose", s.lang), basis="rule", source="flow")], verify=False)
+                yield from self._say(s, [_st("choose", s.lang, "rule", "flow")], verify=False)
         elif u.intent == "confirm_mine" and s.stage == "confirm":
             s.stage = "closed"
             yield self._step("act", action="close_recognized", transaction_id=s.tx["transaction_id"])
-            yield from self._say(s, [Statement(text=M.t("closed_mine", s.lang), basis="rule", source="policy:recurring-cancel-via-bank")])
+            yield from self._say(s, [_st("closed_mine", s.lang, "rule", "policy:recurring-cancel-via-bank")])
         elif u.intent == "reconfirm" and s.stage == "confirm":
             yield self._step("decide", action="reconfirm_before_closing")
-            yield from self._say(s, [Statement(text=M.t("ask_confirm", s.lang), basis="rule", source="policy:close-needs-clear-yes")], verify=False)
+            yield from self._say(s, [_st("ask_confirm", s.lang, "rule", "policy:close-needs-clear-yes")], verify=False)
         elif u.intent == "file_claim" and s.stage == "confirm":
             s.stage = "statement"
             yield self._step("decide", action="collect_statement")
-            yield from self._say(s, [Statement(text=M.t("ask_statement", s.lang), basis="rule", source="policy:handoff-checklist")], verify=False)
+            yield from self._say(s, [_st("ask_statement", s.lang, "rule", "policy:handoff-checklist")], verify=False)
         elif u.intent == "dispute_charge" or u.intent in ("confirm_mine", "file_claim", "choose_option"):
             # Confirming, claiming, or choosing only make sense about a charge already on screen.
             s.request_text = text
             yield from self._find(s, u)
         elif u.intent == "greeting":
-            yield from self._say(s, [Statement(text=M.t("greeting", s.lang, name=s.customer.first_name.split()[0]), basis="rule", source="flow")], verify=False)
+            yield from self._say(s, [_st("greeting", s.lang, "rule", "flow", name=s.customer.first_name.split()[0])], verify=False)
         else:
             yield self._step("decide", action="abstain_out_of_scope")
-            yield from self._say(s, [Statement(text=M.t("out_of_scope", s.lang), basis="rule", source="policy:scope")], verify=False)
+            yield from self._say(s, [_st("out_of_scope", s.lang, "rule", "policy:scope")], verify=False)
 
     # ---- dispute path ---------------------------------------------------------------------
     def _find(self, s: Session, u: Understanding) -> Iterator[dict]:
         if not (u.amount or u.merchant or u.date):
             yield self._step("decide", action="clarify_missing_details")
-            yield from self._say(s, [Statement(text=M.t("need_details", s.lang), basis="rule", source="flow")], verify=False)
+            yield from self._say(s, [_st("need_details", s.lang, "rule", "flow")], verify=False)
             return
         date_from = u.date
         date_to = u.date + timedelta(days=1) if u.date else None
@@ -250,20 +257,23 @@ class Engine:
                                           date_from=date_from, date_to=date_to)
         yield self._step("act", tool="find_transactions", results=min(len(found), 6))
         if not found:
-            yield from self._say(s, [Statement(text=M.t("none_found", s.lang), basis="rule", source="tool:find_transactions")], verify=False)
+            yield from self._say(s, [_st("none_found", s.lang, "rule", "tool:find_transactions")], verify=False)
         elif len(found) == 1:
             yield from self._explain(s, found[0])
         elif len(found) <= 5:
             s.stage, s.candidates = "choose", found
             yield {"type": "candidates", "items": [self._card(tx, s.lang, i + 1) for i, tx in enumerate(found)]}
-            yield from self._say(s, [Statement(text=M.t("choose", s.lang), basis="rule", source="flow")], verify=False)
+            yield from self._say(s, [_st("choose", s.lang, "rule", "flow")], verify=False)
         else:
-            yield from self._say(s, [Statement(text=M.t("too_many", s.lang), basis="rule", source="tool:find_transactions")], verify=False)
+            yield from self._say(s, [_st("too_many", s.lang, "rule", "tool:find_transactions")], verify=False)
 
     def _card(self, tx: dict, lang: str, n: int) -> dict:
         return {"option": n, "transaction_id": tx["transaction_id"], "when": M.when(tx["transaction_date"], lang),
                 "amount": M.money(tx["amount"], tx["currency"]), "merchant": tx["merchant_name"] or M.TX_KINDS[lang].get(tx["transaction_type"], tx["transaction_type"]),
-                "status": tx["transaction_status"]}
+                "status": tx["transaction_status"],
+                # Raw values (specs/004, R6), kept server-side to re-word the card in any language; never streamed.
+                "raw": {"amount": tx["amount"], "currency": tx["currency"], "date": tx["transaction_date"].isoformat(),
+                        "merchant": tx["merchant_name"], "type": tx["transaction_type"], "status": tx["transaction_status"]}}
 
     def _explain(self, s: Session, tx: dict) -> Iterator[dict]:
         if banking.under_compliance_review(self.store, s.customer.customer_id, tx["transaction_id"]):
@@ -271,33 +281,30 @@ class Engine:
             return
         s.tx, s.stage = tx, "confirm"
         lang, src = s.lang, f"transaction:{tx['transaction_id']}"
-        product = M.PRODUCT_NAMES[lang].get(tx["product_type"], tx["product_type"])
-        channel = M.CHANNEL_NAMES[lang].get(tx["channel"], tx["channel"])
+        when = tx["transaction_date"].isoformat()
         if tx["merchant_name"]:
-            core = M.t("tx_core", lang, amount=M.money(tx["amount"], tx["currency"]), merchant=tx["merchant_name"],
-                       when=M.when(tx["transaction_date"], lang), city=tx["transaction_city"] or "?",
-                       country=tx["transaction_country"], channel=channel, product=product, last4=tx["last4"])
+            core = _st("tx_core", lang, "known", src, amount=tx["amount"], currency=tx["currency"], merchant=tx["merchant_name"],
+                       when=when, city=tx["transaction_city"] or "?", country=tx["transaction_country"], channel=tx["channel"],
+                       product=tx["product_type"], last4=tx["last4"])
         else:
-            core = M.t("tx_core_nomerchant", lang, kind=M.TX_KINDS[lang].get(tx["transaction_type"], tx["transaction_type"]),
-                       amount=M.money(tx["amount"], tx["currency"]), when=M.when(tx["transaction_date"], lang),
-                       channel=channel, product=product, last4=tx["last4"])
-        statements = [Statement(text=core, basis="known", source=src)]
+            core = _st("tx_core_nomerchant", lang, "known", src, kind=tx["transaction_type"], amount=tx["amount"],
+                       currency=tx["currency"], when=when, channel=tx["channel"], product=tx["product_type"], last4=tx["last4"])
+        statements = [core]
         if tx["transaction_status"] == "Pending":
-            statements.append(Statement(text=M.t("pending", lang), basis="known", source=src))
+            statements.append(_st("pending", lang, "known", src))
         if tx["merchant_name"]:
             h = banking.merchant_history(self.store, s.customer.customer_id, tx["merchant_name"], tx["transaction_date"])
             yield self._step("act", tool="merchant_history", previous=h["previous_count"])
             key = "history_yes" if h["previous_count"] else "history_no"
-            statements.append(Statement(text=M.t(key, lang, merchant=tx["merchant_name"], n=h["previous_count"],
-                                                 last=M.day(h["last_date"], lang) if h["last_date"] else ""),
-                                        basis="known", source=f"history:{tx['merchant_name']}"))
+            statements.append(_st(key, lang, "known", f"history:{tx['merchant_name']}", merchant=tx["merchant_name"],
+                                  n=h["previous_count"], last=h["last_date"].isoformat() if h["last_date"] else None))
         # Risk signal from the learned component (docs/model-card.md); an estimate, never a decision.
         p, flagged = self._risk(tx)
         tx["risk"] = {"probability": round(p, 4), "flagged": flagged, "model": self.fraud.name if self.fraud else "rule:fraud_score>=50"}
         yield self._internal("act", tool="fraud_risk", **tx["risk"])
         if flagged:
-            statements.append(Statement(text=M.t("risk", lang), basis="guessed", source=f"model:{tx['risk']['model']}"))
-        statements.append(Statement(text=M.t("ask_confirm", lang), basis="rule", source="flow"))
+            statements.append(_st("risk", lang, "guessed", f"model:{tx['risk']['model']}"))
+        statements.append(_st("ask_confirm", lang, "rule", "flow"))
         yield self._step("decide", action="explain_transaction", transaction_id=tx["transaction_id"])
         yield from self._say(s, statements)
 
@@ -313,8 +320,7 @@ class Engine:
         yield self._step("escalate", case_id=case)
         yield self._internal("escalate", case_id=case, case_type="compliance_review", priority=handoff["priority"])
         yield self._handoff_event(handoff)
-        yield from self._say(s, [Statement(text=M.t("compliance_neutral", s.lang, case=case), basis="rule",
-                                           source="policy:specialist-only")], verify=False)
+        yield from self._say(s, [_st("compliance_neutral", s.lang, "rule", "policy:specialist-only", case=case)], verify=False)
 
     def _risk(self, tx: dict) -> tuple[float, bool]:
         if self.fraud:
@@ -344,10 +350,10 @@ class Engine:
         yield self._step("escalate", case_id=case)
         yield self._internal("escalate", case_id=case, case_type=case_type, priority=handoff["priority"])
         yield self._handoff_event(handoff)
-        statements = [Statement(text=M.t("handoff_done", lang, case=case), basis="rule", source=f"handoff:{case}")]
-        statements += [Statement(text=r.text[lang], basis="rule", source=f"rule:{r.id}") for r in rights]
+        statements = [_st("handoff_done", lang, "rule", f"handoff:{case}", case=case)]
+        statements += [_st(f"rule:{r.id}", lang, "rule", f"rule:{r.id}") for r in rights]
         if case_type == "fraud_suspected":
-            statements.append(Statement(text=M.t("freeze_hint", lang), basis="rule", source="policy:never-ask-secrets"))
+            statements.append(_st("freeze_hint", lang, "rule", "policy:never-ask-secrets"))
         yield from self._say(s, statements, verify=False)
 
     # ---- "is this really my bank?" ----------------------------------------------------------
@@ -358,21 +364,20 @@ class Engine:
         yield {"type": "verdict", "verdict": res["verdict"], "channel": channel}
         lang = s.lang
         if res["verdict"] == "scam_asks_secret":
-            st = [Statement(text=M.t("verdict_scam_asks_secret", lang), basis="rule", source="policy:never-ask-secrets")]
+            st = [_st("verdict_scam_asks_secret", lang, "rule", "policy:never-ask-secrets")]
             if u.shared_secret:
                 yield from self._escalate_contact(s, text, channel, st)
                 return
             if u.shared_secret is None:
                 s.stage, s.pending_contact = "contact_shared", {"channel": channel, "text": text}
-                st.append(Statement(text=M.t("ask_shared", lang), basis="rule", source="policy:handoff-checklist"))
+                st.append(_st("ask_shared", lang, "rule", "policy:handoff-checklist"))
             yield from self._say(s, st, verify=False)
         elif res["verdict"] == "bank_contact":
             m = res["matches"][0]
-            yield from self._say(s, [Statement(text=M.t("verdict_bank_contact", lang, channel=M.CHANNEL_NAMES[lang][m["channel"]],
-                                                         day=M.day(m["contact_ts"], lang)), basis="known", source=f"outbound:{m['contact_id']}")])
+            yield from self._say(s, [_st("verdict_bank_contact", lang, "known", f"outbound:{m['contact_id']}",
+                                         channel=m["channel"], day=m["contact_ts"].isoformat())])
         else:
-            yield from self._say(s, [Statement(text=M.t("verdict_no_record", lang, channel=M.CHANNEL_NAMES[lang][channel]),
-                                               basis="known", source="outbound:none-in-window")])
+            yield from self._say(s, [_st("verdict_no_record", lang, "known", "outbound:none-in-window", channel=channel)])
 
     def _contact_followup(self, s: Session, text: str) -> Iterator[dict]:
         shared = _yes_no(text)
@@ -381,7 +386,7 @@ class Engine:
             yield from self._escalate_contact(s, pc["text"] + " / " + text, pc["channel"], [])
         else:
             s.stage = "start"
-            yield from self._say(s, [Statement(text=M.t("freeze_hint", s.lang), basis="rule", source="policy:never-ask-secrets")], verify=False)
+            yield from self._say(s, [_st("freeze_hint", s.lang, "rule", "policy:never-ask-secrets")], verify=False)
 
     def _escalate_contact(self, s: Session, text: str, channel: str, st: list[Statement]) -> Iterator[dict]:
         case = _case_id()
@@ -394,7 +399,7 @@ class Engine:
         yield self._step("escalate", case_id=case, urgent=True)  # the customer is told it is urgent (freeze the card)
         yield self._internal("escalate", case_id=case, case_type="fake_contact_secret_shared", priority="urgent")
         yield self._handoff_event(handoff)
-        st = st + [Statement(text=M.t("verdict_escalated", s.lang, case=case), basis="rule", source=f"handoff:{case}")]
+        st = st + [_st("verdict_escalated", s.lang, "rule", f"handoff:{case}", case=case)]
         yield from self._say(s, st, verify=False)
 
     # ---- handoff ----------------------------------------------------------------------------

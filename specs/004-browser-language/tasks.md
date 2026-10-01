@@ -36,16 +36,16 @@ A task is checked off only when its gates pass.
 
 **Purpose**: pin what must not change before anything changes, and add the shared language constants.
 
-- [ ] T001 Pin the r1 PDF bytes before any transcript change. Add `test_r1_render_is_frozen` to `backend/tests/test_transcript.py`:
+- [X] T001 Pin the r1 PDF bytes before any transcript change. Add `test_r1_render_is_frozen` to `backend/tests/test_transcript.py`:
   - build a schema-1 snapshot by hand with made-up text only (no dataset values): two customer messages, one message with statements of all three bases, one candidates entry, one verdict, one handoff, `lang: "pt"`;
   - sign it with a fixed test key (`fingerprint(..., key=b"test-key")`, then `check_code`);
   - render it with the current `app.transcript.render.render`;
   - assert the SHA-256 of the bytes equals a constant recorded now.
 
   Never commit the PDF itself (`CLAUDE.md`).
-- [ ] T002 [P] Create `backend/app/language/__init__.py` with `LANGS = ("en", "es", "pt")`, `Lang = Literal["en", "es", "pt"]`, and `BASE_LANG = "en"`, with a docstring citing constitution v1.1.0 (English is the base language).
-- [ ] T003 [P] Add `conversation-*.pdf` to `.gitignore`, next to `conversacion-*.pdf` and `conversa-*.pdf` (research R11).
-- [ ] T004 [P] Set `locale: 'es-MX'` in the `use` block of all four projects in `frontend/playwright.config.ts` (research R13). Run `npm run check:ui` and confirm the same counts as before (59 passed, 9 skipped).
+- [X] T002 [P] Create `backend/app/language/__init__.py` with `LANGS = ("en", "es", "pt")`, `Lang = Literal["en", "es", "pt"]`, and `BASE_LANG = "en"`, with a docstring citing constitution v1.1.0 (English is the base language).
+- [X] T003 [P] Add `conversation-*.pdf` to `.gitignore`, next to `conversacion-*.pdf` and `conversa-*.pdf` (research R11).
+- [X] T004 [P] Set `locale: 'es-MX'` in the `use` block of all four projects in `frontend/playwright.config.ts` (research R13). Run `npm run check:ui` and confirm the same counts as before (59 passed, 9 skipped).
 
 ---
 
@@ -53,31 +53,31 @@ A task is checked off only when its gates pass.
 
 **Purpose**: introduce the two boundaries the owner asked for (research R1, R2) and the statement recipes (R6), with byte-identical output for Spanish and Portuguese. US2, US3, and US5 depend on this phase. US1 and US4 are frontend-only and can run in parallel with it.
 
-- [ ] T005 Create `backend/app/language/interpreter.py` with `interpret(text: str, *, stage: str, merchants: list[str], today: datetime, session_customer_id: str, llm) -> Understanding`:
+- [X] T005 Create `backend/app/language/interpreter.py` with `interpret(text: str, *, stage: str, merchants: list[str], today: datetime, session_customer_id: str, llm) -> Understanding`:
   - move the body of `Engine._understand` from `backend/app/workflow/engine.py` here, keeping every rule exactly:
     - the rules scan always runs on the original text;
     - the model is skipped at stages `statement` and `contact_shared`;
     - `other_customer_reference` and `injection_suspected` are OR-ed into the model's result;
     - at `confirm`, a rules `file_claim` forces `file_claim`, and a model-only `confirm_mine` becomes `reconfirm`;
   - make `Engine._understand` a one-line call to it.
-- [ ] T006 Extend `Statement` in `backend/app/workflow/engine.py` with `key: str | None = None` and `params: dict = Field(default_factory=dict)`. At every place a `Statement` is built in `engine.py`, set:
+- [X] T006 Extend `Statement` in `backend/app/workflow/engine.py` with `key: str | None = None` and `params: dict = Field(default_factory=dict)`. At every place a `Statement` is built in `engine.py`, set:
   - `key`: the `messages.T` key, or `f"rule:{rule.id}"` for country rights;
   - `params`: the raw verified values, not formatted strings: `amount` (float), `currency`, `when`/`day`/`last` (ISO text), `merchant`, `city`, `country`, `channel` (code, e.g. `"POS"` or `"whatsapp"`), `product` (code, e.g. `"Tarjeta Débito"`), `kind` (transaction-type code), `last4`, `n`, `case`, `name`.
-- [ ] T007 Create `backend/app/language/translator.py` with:
+- [X] T007 Create `backend/app/language/translator.py` with:
   - `render_statement(st, lang) -> str`: formats `st.params` with the per-language helpers (`messages.money`, `messages.when`, `messages.day`, and the `CHANNEL_NAMES`, `PRODUCT_NAMES`, `TX_KINDS` lookups), then fills `messages.T[key][lang]`, or `policy.rules` text for `rule:<id>`;
   - `render(statements, lang) -> list[Statement]`: copies with `text` replaced and `key`, `params`, `basis`, and `source` unchanged.
 
   Then make the engine produce every statement's `text` through `render_statement`, so there is one path from recipe to text.
-- [ ] T008 Keep candidate cards' raw values server-side: in `Engine._card` in `backend/app/workflow/engine.py`, add `raw: {amount, currency, date (ISO), merchant, type, status}` to each item.
-- [ ] T009 In `backend/app/api/main.py` `chat().stream()`:
+- [X] T008 Keep candidate cards' raw values server-side: in `Engine._card` in `backend/app/workflow/engine.py`, add `raw: {amount, currency, date (ISO), merchant, type, status}` to each item.
+- [X] T009 In `backend/app/api/main.py` `chat().stream()`:
   - give the recorder the full event (`s.transcript.record(event)`);
   - serialize a public copy without `key`, `params` (inside `statements`), or `raw` (inside candidate items).
 
   The browser receives exactly what it receives today.
-- [ ] T010 In `backend/app/transcript/record.py`:
+- [X] T010 In `backend/app/transcript/record.py`:
   - keep `key`, `params`, `raw`, a per-entry `lang` (the turn's `done.lang`), and `phrased_by` on recorded entries;
   - make `snapshot()` drop all of these, so schema-1 snapshots, and the PDFs and check codes built from them, are unchanged. T001 must still pass.
-- [ ] T011 Add `backend/tests/test_language.py` with:
+- [X] T011 Add `backend/tests/test_language.py` with:
   - `test_render_round_trip_es_pt`: for every statement each existing demo path emits (normal, pending, claim with rights, scam, real contact, no record, compliance, unauthorized, out of scope), `render_statement(st, st_lang) == st.text`;
   - `test_stream_has_no_recipes`: no streamed event contains `key`, `params`, or `raw`.
 

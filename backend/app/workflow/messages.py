@@ -10,7 +10,7 @@ MONTHS = {
 }
 
 
-def money(amount: float, currency: str) -> str:
+def money(amount: float, currency: str, lang: str = "es") -> str:
     s = f"{amount:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
     return f"{s} {currency}"
 

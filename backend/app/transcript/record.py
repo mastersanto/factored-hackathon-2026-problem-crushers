@@ -12,6 +12,7 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from app.language import LANGS
 from app.transcript.mask import mask
 
 SCHEMA = 1
@@ -41,11 +42,24 @@ def _entry(event: dict, ts: float) -> dict | None:
     return None  # step events (the trace) and anything else are not part of the conversation
 
 
+def _recipe(event: dict) -> dict:
+    """What it takes to re-word an entry in another language (specs/004, R6). Kept beside the entries, never
+    in them: the entries stay exactly what the customer saw, and are what the PDF records."""
+    t = event.get("type")
+    if t == "message":
+        return {"statements": [{"key": st.get("key"), "params": st.get("params") or {}} for st in event.get("statements", [])]}
+    if t == "candidates":
+        return {"raw": [c.get("raw") for c in event["items"]]}
+    return {}
+
+
 class TranscriptRecorder:
     def __init__(self):
         self._lock = threading.Lock()
         self._entries: list[dict] = []
+        self._recipes: list[dict] = []  # one per entry: its language and how to re-word it
         self._pending: list[dict] | None = None
+        self._pending_recipes: list[dict] = []
         self._pending_masked = False
         self._pending_lang: str | None = None
         self.masked = False
@@ -54,6 +68,7 @@ class TranscriptRecorder:
     def begin(self, text: str, now: float | None = None) -> None:
         masked_text, was_masked = mask(text)
         self._pending = [{"kind": "customer", "ts": now or time.time(), "text": masked_text}]
+        self._pending_recipes = [{}]
         self._pending_masked, self._pending_lang = was_masked, None
 
     def record(self, event: dict, now: float | None = None) -> None:
@@ -65,6 +80,7 @@ class TranscriptRecorder:
         entry = _entry(event, now or time.time())
         if entry:
             self._pending.append(entry)
+            self._pending_recipes.append(_recipe(event))
 
     def commit(self) -> None:
         with self._lock:
@@ -72,14 +88,23 @@ class TranscriptRecorder:
                 return
             self._entries.extend(self._pending)
             self.masked |= self._pending_masked
-            if self._pending_lang in ("es", "pt"):
+            if self._pending_lang in LANGS:
                 self.lang = self._pending_lang
+            # The turn's language: the language the reply was given in, which the customer's message took too.
+            self._recipes.extend({**r, "lang": self.lang} for r in self._pending_recipes)
             self._pending = None
 
     @property
     def entries(self) -> list[dict]:
         with self._lock:
             return list(self._entries)
+
+    @property
+    def recipes(self) -> list[dict]:
+        """One per entry, aligned with `entries`: `lang`, plus `statements` (key, params) for messages and
+        `raw` for charge options."""
+        with self._lock:
+            return list(self._recipes)
 
     @property
     def has_turns(self) -> bool:

@@ -28,7 +28,7 @@ from app.data.store import get_store
 from app.eval.cases import CATEGORIES, EVAL_DIR
 from app.eval.transcript_check import check_case
 from app.tools import banking
-from app.workflow.engine import Engine, HandoffQueue, SessionStore
+from app.workflow.engine import Engine, HandoffQueue, SessionStore, public_event
 
 REPORT = BACKEND_DIR.parent / "docs" / "evaluation.md"
 PROMISE_RE = re.compile(r"le devolveremos|le vamos a devolver|le reembolsaremos|garantizamos|será aprobad|le van a devolver|"
@@ -95,7 +95,7 @@ def grade(case: dict, turns: list[dict], usage: list[dict], store) -> dict:
                 for m2 in TX_RE.findall(st.get("source") or "")}
     queue = {h["case_id"]: h for h in HANDOFF_LOOKUP.items} if HANDOFF_LOOKUP else {}
     handoffs = [queue.get(e["handoff"]["case_id"], e["handoff"]) for e in events if e["type"] == "handoff"]
-    public = [e for e in events if not e.get("internal")]  # what the API streams to the customer
+    public = [public_event(e) for e in events if not e.get("internal")]  # what the API streams to the customer
     leaked = [e for e in public if (e["type"] == "handoff" and set(e["handoff"]) - {"case_id"})
               or any(k in e for k in ("case_type", "priority", "probability", "flagged", "under_review"))
               or "compliance" in json.dumps(e, default=str).lower()]

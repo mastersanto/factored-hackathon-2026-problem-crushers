@@ -27,7 +27,7 @@ from app.transcript import fingerprint as transcript_keys
 from app.transcript.fingerprint import FingerprintRegister, sign
 from app.transcript.render import file_name, render
 from app.transcript.verify import verify
-from app.workflow.engine import Engine, HandoffQueue, SessionStore
+from app.workflow.engine import Engine, HandoffQueue, SessionStore, public_event
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("api")
@@ -154,7 +154,8 @@ def chat(req: ChatRequest):
                 if event.get("internal"):  # staff-only trace (risk estimate, compliance holds, case types): never sent
                     continue
                 s.transcript.record(event)
-                yield f"event: {event['type']}\ndata: {json.dumps(event, default=str, ensure_ascii=False)}\n\n"
+                public = public_event(event)
+                yield f"event: {public['type']}\ndata: {json.dumps(public, default=str, ensure_ascii=False)}\n\n"
         finally:
             s.transcript.commit()
 
