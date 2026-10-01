@@ -61,9 +61,9 @@ export const api = {
   health: () => fetch('/api/health').then(json<{ as_of: string; llm_enabled: boolean }>),
   demoCustomers: () => fetch('/api/demo/customers').then(json<DemoCustomer[]>),
   handoffs: () => fetch('/api/handoffs').then(json<Handoff[]>),
-  startSession: (customer_id: string) =>
-    fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id }) })
-      .then(json<{ session_id: string; conversation_ref: string; customer: { first_name: string; country: string } }>),
+  startSession: (customer_id: string, lang: Lang) =>
+    fetch('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer_id, lang }) })
+      .then(json<{ session_id: string; conversation_ref: string; lang: Lang; customer: { first_name: string; country: string } }>),
 }
 
 /** Download the conversation as a PDF (specs/002). The server builds it from what it streamed to this

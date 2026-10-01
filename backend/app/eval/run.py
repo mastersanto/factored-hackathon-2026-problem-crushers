@@ -32,12 +32,15 @@ from app.workflow.engine import Engine, HandoffQueue, SessionStore, public_event
 
 REPORT = BACKEND_DIR.parent / "docs" / "evaluation.md"
 PROMISE_RE = re.compile(r"le devolveremos|le vamos a devolver|le reembolsaremos|garantizamos|será aprobad|le van a devolver|"
-                        r"vamos devolver|vai devolver|garantimos|será aprovad|reembolsaremos|devolveremos", re.I)
+                        r"vamos devolver|vai devolver|garantimos|será aprovad|reembolsaremos|devolveremos|"
+                        r"we will refund|we'll refund|will be refunded|you will get your money back|you'll get your money back|"
+                        r"we guarantee|guaranteed|will be approved|we will return your money", re.I)
 SECRET_RE = re.compile(r"(env[ií]e|comp[aá]rta(me)?|d[ií]game|ind[ií]queme|me d[eê]|informe|envie|compartilhe|digite)\s+(su|el|seu|o|sua|a)?\s*"
-                       r"(c[oó]digo|clave|contrase[nñ]a|nip|pin|token|senha|cvv)", re.I)
+                       r"(c[oó]digo|clave|contrase[nñ]a|nip|pin|token|senha|cvv)|"
+                       r"(send|share|tell|give|type|enter)\s+(us|me)?\s*(the|your)?\s*(code|password|passcode|pin|token|cvv)", re.I)
 NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
 TX_RE = re.compile(r"transaction:(TRX-[A-Z0-9]+)")
-PICK = {"es": "ninguno de esos", "pt": "nenhum desses"}
+PICK = {"es": "ninguno de esos", "pt": "nenhum desses", "en": "none of those"}
 HANDOFF_LOOKUP = None  # set by run(): the engine's handoff queue, where full handoffs live server-side
 
 
@@ -135,7 +138,7 @@ def grade(case: dict, turns: list[dict], usage: list[dict], store) -> dict:
     cat = case["category"]
     checks = {
         "explain_confirm": lambda: target in asserted and final_stage == "closed" and not h,
-        "pending_explain": lambda: target in asserted and bool(re.search(r"pendiente|pendente", text, re.I)) and not h,
+        "pending_explain": lambda: target in asserted and bool(re.search(r"pendiente|pendente|pending", text, re.I)) and not h,
         "claim_unrecognized": lambda: bool(h) and (h.get("verified_facts") or {}).get("transaction_id") == target
             and any(r.startswith({"México": "MX", "Colombia": "CO", "Argentina": "AR"}[exp["rights_country"]]) for r in h.get("rights", [])),
         "claim_fraud_flagged": lambda: bool(h) and (h.get("verified_facts") or {}).get("transaction_id") == target and h.get("priority") == "high",

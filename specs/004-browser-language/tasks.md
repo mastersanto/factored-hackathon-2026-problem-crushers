@@ -141,14 +141,14 @@ A task is checked off only when its gates pass.
 
 **Independent Test**: run the three required cases, the scam check, and the refusal of another customer's data in English, in rules mode, and compare each with its Spanish counterpart.
 
-- [ ] T022 [P] [US2] In `backend/app/workflow/messages.py`:
+- [X] T022 [P] [US2] In `backend/app/workflow/messages.py`:
   - add `"en"` for every key of `T`, and to `MONTHS`, `CHANNEL_NAMES`, `PRODUCT_NAMES`, `TX_KINDS`, and `QUICK_REPLIES`. English goes first in each dict as the source text; Spanish and Portuguese are untouched word for word;
   - make `money(amount, currency, lang)` give `1,234.56 USD` for `en` and the current format for `es` and `pt`;
   - make `when` and `day` give `June 12, 2026, 14:05` and `June 12, 2026` for `en`;
   - English wording uses the same facts and placeholders as Spanish, with no promises and no request for secrets (FR-419);
   - English quick replies: confirm `["Yes, it was me", "It wasn't me"]`; statement `["I have my card and didn't share any code", "I shared a code over the phone", "I lost my card"]`; contact_shared `["Yes, I shared it", "No, I didn't share anything"]`.
-- [ ] T023 [P] [US2] Add `"en"` texts to every rule in `backend/app/policy/rules.py`, including `PROVISIONAL_CREDIT_MX`, with the same ids and meaning. Update the module docstring: the English texts are team translations of desk research, not legal advice.
-- [ ] T024 [US2] In `backend/app/workflow/understanding.py`:
+- [X] T023 [P] [US2] Add `"en"` texts to every rule in `backend/app/policy/rules.py`, including `PROVISIONAL_CREDIT_MX`, with the same ids and meaning. Update the module docstring: the English texts are team translations of desk research, not legal advice.
+- [X] T024 [US2] In `backend/app/workflow/understanding.py`:
   - **Language**: `Understanding.language` becomes `Literal["en", "es", "pt"] | None` (None = unclear).
   - **Detection** (research R4): add `EN_MARKERS` and `ES_MARKERS` next to `PT_MARKERS`, scored on the normalised text. The language is clear only when the top score is at least 1, strictly above the others, and the message has at least two words of letters.
   - **English keywords**, from the exact lists in research R3:
@@ -160,29 +160,29 @@ A task is checked off only when its gates pass.
     - `CONTACT`, `CHANNEL_WORDS` ("text message", "call", "email", "notification"), `OUT_OF_SCOPE` ("loan", "balance", "transfer money", "open an account"), `GREETING` ("hi", "hello", "good morning"), `PROBLEM`, and charge words ("charge", "transaction", "payment", "debit");
     - `_yes_no` and `_yes_no_shared` in `engine.py`: add English.
   - **Dates and amounts** (research R5): English month names ("June 12", "12 June"), "yesterday", and "today". Numeric dates stay day first.
-- [ ] T025 [US2] In `backend/app/llm/claude.py`:
+- [X] T025 [US2] In `backend/app/llm/claude.py`:
   - `_LLMUnderstanding.language` becomes `Literal["en", "es", "pt", "unclear"]`;
   - `UNDERSTAND_SYSTEM` names English, Spanish, and Portuguese, and says to answer `unclear` for short or mixed messages;
   - map `unclear` to None, and apply the two-word minimum from T024;
   - `LANG_NAME["en"] = "English (clear, polite)"`;
   - add the English promises from research R5 to `PROMISES`.
-- [ ] T026 [US2] Accept English end to end:
+- [X] T026 [US2] Accept English end to end:
   - **Engine** (`backend/app/workflow/engine.py`): when `u.language` is None, keep `s.lang`; `done.lang` may be `en`.
   - **Recorder** (`backend/app/transcript/record.py`): `commit()` accepts any of `LANGS`.
   - **Session** (`backend/app/api/main.py`): `SessionRequest` gains `lang: Literal["en", "es", "pt"] = "es"`, which sets `Session.lang`, and the response echoes `lang` (contracts/http-api.md).
   - **Frontend** (`frontend/src/api.ts`): `startSession(customer_id, lang)` sends the app language.
-- [ ] T027 [US2] In `frontend/src/i18n.ts`, change the `intro` of all three sets and `BOTH_LANGUAGES` to say the customer can write in English, Spanish, or Portuguese.
-- [ ] T028 [US2] Add English workflow and guard tests to `backend/tests/test_language.py`, in rules mode, mirroring `test_workflow.py` and `test_guards.py`:
+- [X] T027 [US2] In `frontend/src/i18n.ts`, change the `intro` of all three sets and `BOTH_LANGUAGES` to say the customer can write in English, Spanish, or Portuguese.
+- [X] T028 [US2] Add English workflow and guard tests to `backend/tests/test_language.py`, in rules mode, mirroring `test_workflow.py` and `test_guards.py`:
   - **Workflow**: normal path (explain and "Yes, it was me"); human-required claim ("It wasn't me", a statement, rights in English); ambiguous request; scam that asked for a code, escalated when shared; real bank message; another customer's ID refused; out of scope.
   - **Guards**: a parametrized test that runs each guard phrase in en, es, and pt with the deliberately wrong fake model (it always says `confirm_mine`, never flags anything). Each guard must fire in all three languages (SC-406).
   - **Rest**: English quick replies are understood; an English model rewording with a promise is rejected by `faithful`.
-- [ ] T029 [US2] In `backend/app/eval/cases.py`:
+- [X] T029 [US2] In `backend/app/eval/cases.py`:
   - add `"en"` to every phrasing dict: `DESCRIBE`, `CONFIRM`, `CLAIM`, `STATEMENT`, `VAGUE`, `OUT`, `SCAM`, `SHARED_YES`, `SHARED_YES_CODE`, `STATEMENT_CARD`, `CONTACT`, `CHANNEL_WORD`, `UNAUTH`, `INJECT`;
   - add `"en"` to every `HELDOUT` group. Write these **before** tuning the rules on English, and never use them to tune;
   - extend `_date` to English;
   - loop over `("es", "pt", "en")`, with English last, so the Spanish and Portuguese random draws stay identical. Give English its own seed offsets (`+2`), leaving the existing `(lang == "pt")` offsets unchanged;
   - in `backend/app/eval/report.py`, compute the language count instead of the hard-coded "2 languages (Spanish, Portuguese)".
-- [ ] T030 [US2] Run `make eval`. Then:
+- [X] T030 [US2] Run `make eval`. Then:
   - confirm the Spanish and Portuguese rows in `docs/evaluation.md` match those before T029;
   - check English: 0 unsafe outcomes, and correct outcomes within 5 points of Spanish (SC-403);
   - if English falls short, fix the rules using the **dev** set only (seed 7), with a general fix and a regression test (constitution V). Never fix it with case-specific patches.
@@ -197,19 +197,19 @@ A task is checked off only when its gates pass.
 
 **Independent Test**: with an English browser, sign in and send a Spanish message: the reply and every fixed text are Spanish. Send "1" or "ok": the language stays.
 
-- [ ] T031 [US3] In `Engine._turn` in `backend/app/workflow/engine.py`, replace the condition `if s.stage in ("start", "closed") or u.intent in (...)` with `if u.language: s.lang = u.language`, so a clear language switches at any stage and an unclear one never does (FR-407).
-- [ ] T032 [US3] Add tests to `backend/tests/test_language.py`:
+- [X] T031 [US3] In `Engine._turn` in `backend/app/workflow/engine.py`, replace the condition `if s.stage in ("start", "closed") or u.intent in (...)` with `if u.language: s.lang = u.language`, so a clear language switches at any stage and an unclear one never does (FR-407).
+- [X] T032 [US3] Add tests to `backend/tests/test_language.py`:
   - a session created with `lang="en"`, then a Spanish message, gives a Spanish reply with `done.lang == "es"`;
   - "1" at the choose stage keeps the language;
   - "yes" at the confirm stage of a Spanish conversation keeps Spanish and still closes only with the rules' agreement;
   - a Portuguese "Não fui eu" at the confirm stage of a Spanish conversation files the claim and switches to Portuguese.
 
   Every existing test passes unchanged.
-- [ ] T033 [US3] Make the app language the single source for every fixed text, chat included (FR-408 replaces specs/003 FR-201):
+- [X] T033 [US3] Make the app language the single source for every fixed text, chat included (FR-408 replaces specs/003 FR-201):
   - in `frontend/src/useChat.ts` and `frontend/src/Chat.tsx`, when a `done` event's `lang` differs from the app language, call `setLang(done.lang)` from `useLanguage()`. Don't store it (data-model: App language transitions);
   - the header, sign-in, and specialist texts follow at once;
   - remove the separate `chatLang` state from `frontend/src/App.tsx`.
-- [ ] T034 [US3] Extend `frontend/e2e/language.spec.ts` with two checks:
+- [X] T034 [US3] Extend `frontend/e2e/language.spec.ts` with two checks:
   - in an `en-US` browser, sign in and send the Spanish example. The header, the nav, and every chat fixed text are then Spanish, and `<html lang="es">`;
   - an English conversation shows 0 Spanish or Portuguese fixed texts (SC-402).
 

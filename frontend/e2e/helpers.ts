@@ -113,6 +113,20 @@ export function spanishOnly(): string[] {
   return [...new Set(es.filter((s, i) => s !== pt[i] && !ptSet.has(s)).map((s) => s.split('X')[0].trim()).filter((s) => s.length >= 4))]
 }
 
+/** Fixed texts of the other two languages that differ from every text of `lang`: none may show in a `lang` chat.
+ *  The shared trilingual invitation line and identical words (e.g. "Normal", "SMS") are excluded. */
+export function otherThan(lang: Lang): string[] {
+  const own = new Set(strings(TEXT[lang] as TextSet).map((s) => s.split('X')[0].trim()))
+  const others = (['en', 'es', 'pt'] as const).filter((l) => l !== lang).flatMap((l) => strings(TEXT[l] as TextSet))
+  return [...new Set(others.map((s) => s.split('X')[0].trim()).filter((s) => s.length >= 4 && !own.has(s) && !s.includes(' · You can write')))]
+}
+
+/** Whether `text` appears in `shown` as whole words: "Conversa" must not match inside "Conversation". */
+export function showsText(shown: string, text: string): boolean {
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|[^\\p{L}])${escaped}($|[^\\p{L}])`, 'u').test(shown)
+}
+
 /** The chat's fixed texts as shown: visible text plus spoken names and placeholders, without what the customer
  *  typed, the example messages, and the demo's technical trace. */
 export async function fixedTexts(page: Page): Promise<string> {

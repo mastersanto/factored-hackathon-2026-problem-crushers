@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Literal
 from datetime import datetime, timedelta, timezone
 
 import time
@@ -45,6 +46,8 @@ transcripts = FingerprintRegister()  # check-code fingerprints only, never conve
 
 class SessionRequest(BaseModel):
     customer_id: str = Field(pattern=r"^CLI-[A-Z0-9]{6,}$")
+    # The app language at sign-in (specs/004): the session starts in it. Spanish when absent, as before.
+    lang: Literal["en", "es", "pt"] = "es"
 
 
 class TranscriptRequest(BaseModel):
@@ -147,8 +150,9 @@ def create_session(req: SessionRequest, request: Request):
     if not customer:
         raise HTTPException(404, "unknown customer")
     s = sessions.create(customer)
+    s.lang = req.lang
     log.info("session created for %s", customer.customer_id)
-    return {"session_id": s.id, "conversation_ref": s.conversation_ref,
+    return {"session_id": s.id, "conversation_ref": s.conversation_ref, "lang": s.lang,
             "customer": {"first_name": customer.first_name, "country": customer.country},
             "expires_in_seconds": settings.session_ttl_seconds}
 

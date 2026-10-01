@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { downloadTranscript, HttpError, type ChatEvent, type Lang } from './api'
+import { downloadTranscript, HttpError, type ChatEvent } from './api'
 import { CandidateList } from './components/CandidateList'
 import { CaseCard } from './components/CaseCard'
 import { Statements } from './components/Statements'
@@ -7,6 +7,7 @@ import { StepsPanel } from './components/StepsPanel'
 import { VerdictCard } from './components/VerdictCard'
 import { TEXT } from './i18n'
 import { Icon } from './icons'
+import { useLanguage } from './language'
 import { formatTime, stepProgress, useChat, type Turn } from './useChat'
 
 interface Props {
@@ -15,16 +16,15 @@ interface Props {
   firstName: string
   country: string
   suggestions: string[]
-  /** The app language: the chat's texts use it until the first reply (specs/004, FR-408). */
-  initialLang: Lang
   onChangeCustomer: () => void
-  onLang: (lang: Lang) => void
 }
 
 /** The customer's chat (specs/003 design, "Screen Chat"). Every fixed text follows the language of the latest
  *  assistant message (FR-201); what the assistant says is shown exactly as the server streamed it. */
-export function Chat({ sessionId, conversationRef, firstName, country, suggestions, initialLang, onChangeCustomer, onLang }: Props) {
-  const { turns, busy, replies, lang, completed, send } = useChat(sessionId, initialLang)
+export function Chat({ sessionId, conversationRef, firstName, country, suggestions, onChangeCustomer }: Props) {
+  // Every fixed text follows the app language, which follows the language the customer writes in (specs/004).
+  const { lang, setLang } = useLanguage()
+  const { turns, busy, replies, completed, send } = useChat(sessionId, lang, setLang)
   const t = TEXT[lang]
   const [pdf, setPdf] = useState<{ tone: 'good' | 'bad'; text: string } | null>(null)
   const [pdfExpired, setPdfExpired] = useState(false)
@@ -33,7 +33,6 @@ export function Chat({ sessionId, conversationRef, firstName, country, suggestio
   const end = useRef<HTMLDivElement>(null)
   const typed = useRef(false)
 
-  useEffect(() => { onLang(lang) }, [lang, onLang])
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     end.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'end' })

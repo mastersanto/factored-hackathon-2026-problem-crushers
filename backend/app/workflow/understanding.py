@@ -14,7 +14,9 @@ Intent = Literal["dispute_charge", "check_contact", "confirm_mine", "file_claim"
 
 
 class Understanding(BaseModel):
-    language: Literal["es", "pt"] = "es"
+    # The message's language when it is clear; None when it is not (an option number, "ok", an amount). An unclear
+    # message never changes the conversation's language (specs/004, FR-407, research R4).
+    language: Literal["en", "es", "pt"] | None = None
     intent: Intent = "dispute_charge"
     amount: float | None = None
     merchant: str | None = None
@@ -29,31 +31,86 @@ class Understanding(BaseModel):
 
 
 def _norm(text: str) -> str:
-    return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
+    text = text.lower().replace("\u2019", "'")  # typographic apostrophe: "wasn’t" reads as "wasn't"
+    return "".join(c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn")
 
 
 PT_MARKERS = ["nao ", "voce", "cobranca", "cartao", "reconheco", "obrigad", "ontem", "hoje", "ligacao",
               "mensagem", "senha", "compra no", "fui eu", "nao fui", "estou", "meu ", "minha ", "ligaram", "dizendo",
               "pediram", "chegou", "do banco", "cobraram", "compartilhei", "voces", "fatura", "tem uma", "apareceu"]
-SECRET = ["codigo", "clave", "contrasena", "nip", " pin", "token", "senha", "cvv", "otp"]
+SECRET = ["codigo", "clave", "contrasena", "nip", " pin", "token", "senha", "cvv", "otp",
+          " code", "password", "passcode", "security code"]
+# Words that say the contact asked for the secret. "share" is left out on purpose: "I didn't share any code" is
+# not a request.
+ASKED = ["pid", "pedi", "solicit", "dame", "dar ", "piden", "pediram", "pediu",
+         "asked", "requested", "wanted my", "wanted the", "give them", "give me", "send them", "send the", "told me to"]
 CONTACT = ["me llamaron", "llamada", "llamo", "mensaje", "sms", "whatsapp", "correo", "email", "e-mail",
-           "me escribieron", "ligacao", "ligaram", "mensagem", "notificacion", "notificacao", "alerta"]
+           "me escribieron", "ligacao", "ligaram", "mensagem", "notificacion", "notificacao", "alerta",
+           "called me", "a call", "phone call", "text message", "message", "notification", "they called", "got a call"]
+# Words that place the contact as coming "from the bank".
+FROM_BANK = ["banco", "bank", "del banco", "do banco", "supuestamente", "decia ser", "dizia ser", "claiming to be",
+             "said they were", "pretending to be"]
 CHANNEL_WORDS = {"whatsapp": "whatsapp", "sms": "sms", "mensaje de texto": "sms", "correo": "email", "email": "email",
-                 "e-mail": "email", "llam": "call", "ligac": "call", "ligaram": "call", "push": "push", "notificac": "push"}
+                 "e-mail": "email", "llam": "call", "ligac": "call", "ligaram": "call", "push": "push", "notificac": "push",
+                 "text message": "sms", "called": "call", "phone call": "call", "a call": "call", "notification": "push"}
 MINE = ["fui yo", "si fui", "lo reconozco", "ya lo reconozco", "si es mio", "es mio", "fui eu", "sim, fui", "reconheco",
-        "e meu", "era mio", "ya recorde", "ya me acorde", "lembrei"]
+        "e meu", "era mio", "ya recorde", "ya me acorde", "lembrei",
+        "it was me", "i made it", "i made that", "i recognize it", "i remember it", "that's mine", "thats mine",
+        "it's mine", "its mine", "i did it", "yes i did"]
 CLAIM = ["no fui yo", "no lo reconozco", "no reconozco", "reclamar", "reclamo", "fraude", "robo", "robaron",
          "nao fui eu", "nao reconheco", "contestar", "roubaram", "golpe", "clonaron", "clonada", "no lo hice",
-         "no hice", "nao fiz", "no es mio", "nao e meu", "yo no fui", "eu nao"]
+         "no hice", "nao fiz", "no es mio", "nao e meu", "yo no fui", "eu nao",
+         "wasn't me", "wasnt me", "was not me", "not me", "didn't make", "didnt make", "did not make",
+         "don't recognize", "dont recognize", "do not recognize", "not mine", "wasn't mine", "fraud", "stolen",
+         "dispute", "never made", "i didn't", "i did not"]
 # At the confirmation step a bare yes/no answers the question.
-CONFIRM_YES = re.compile(r"^\s*(si|sim|claro|correcto|exacto|yes)\b")
-CONFIRM_NO = re.compile(r"^\s*(no|nao|nop|negativo)\b")
-PROBLEM = ["algo anda mal", "algo errado", "problema", "raro", "estranh", "no entiendo", "nao entendo", "error", "erro "]
+CONFIRM_YES = re.compile(r"^\s*(si|sim|claro|correcto|exacto|yes|yeah|yep)\b")
+CONFIRM_NO = re.compile(r"^\s*(no|nao|nop|negativo|nope)\b")
+PROBLEM = ["algo anda mal", "algo errado", "problema", "raro", "estranh", "no entiendo", "nao entendo", "error", "erro ",
+           "something wrong", "something's wrong", "is wrong", "wrong with", "not right", "weird", "strange",
+           "don't understand", "overcharged"]
 INJECTION = ["ignora las instrucciones", "ignore previous", "ignore all", "ignora todo", "system prompt",
-             "actua como", "you are now", "olvida tus reglas", "ignore as instrucoes", "developer mode"]
+             "actua como", "you are now", "olvida tus reglas", "ignore as instrucoes", "developer mode",
+             "ignore your instructions", "ignore the instructions", "ignore your rules", "forget your rules", "act as"]
 OUT_OF_SCOPE = ["prestamo", "credito nuevo", "invertir", "hipoteca", "abrir una cuenta", "emprestimo", "transferir dinero",
-                "hacer una transferencia", "cambiar mi direccion", "saldo de mi cuenta"]
-GREETING = ["hola", "buenas", "buenos dias", "ola", "oi", "bom dia"]
+                "hacer una transferencia", "cambiar mi direccion", "saldo de mi cuenta",
+                "loan", "balance", "transfer money", "make a transfer", "open an account", "change my address",
+                "change my phone", "mortgage", "invest"]
+GREETING = ["hola", "buenas", "buenos dias", "ola", "oi", "bom dia", "hello", "hi", "hey", "good morning", "good afternoon"]
+CHARGE_WORDS = ["cargo", "cobro", "compra", "cobranca", "debito", "movimiento", "transaccion", "movimentacao",
+                "charge", "transaction", "payment", "debit", "purchase"]
+
+# Language scoring (research R4). Portuguese keeps its existing marker rule, unchanged. English and Spanish are
+# scored on words that are distinctive for each, after removing merchant names.
+EN_WORDS = {"the", "i", "my", "is", "was", "wasn't", "don't", "didn't", "it", "it's", "this", "that", "what", "why",
+            "charge", "from", "bank", "and", "you", "your", "please", "hello", "hi", "yes", "recognize", "called",
+            "asked", "message", "card", "they", "have", "at", "on", "got", "received", "someone", "today", "yesterday",
+            "wrong", "not", "did", "do", "does", "can", "want", "help", "account", "transaction", "payment",
+            "purchase", "code", "shared", "share", "lost", "of", "for", "with", "me", "mine", "made", "phone", "text",
+            "call", "there", "an", "a", "be", "real", "pending", "loan", "balance", "i'm", "can't", "won't"}
+ES_WORDS = {"el", "la", "los", "las", "un", "una", "del", "mi", "mis", "con", "por", "para", "es", "esta", "este",
+            "esa", "ese", "fui", "yo", "cargo", "cobro", "cobraron", "tarjeta", "reconozco", "hola", "llamaron",
+            "llamada", "mensaje", "pidieron", "clave", "contrasena", "cuenta", "quiero", "tengo", "hice", "pague",
+            "compre", "lo", "le", "se", "usted", "senor", "gracias", "ayer", "hoy", "dinero", "si", "y", "pero",
+            "cuando", "donde", "porque", "mio", "mia", "hay", "algo", "raro", "duda", "movimiento", "comercio",
+            "dia", "di", "comparti", "nada", "eso", "esto", "salio", "aparece", "cobrado", "prestamo", "saldo"}
+GREETING_WORDS = {"hola", "hello", "hi", "hey", "ola", "oi"}
+
+
+def detect_language(t: str) -> str | None:
+    """The language of a normalised message, or None when it is not clear (research R4)."""
+    words = re.findall(r"[a-z']+", t)
+    if any(m in t for m in PT_MARKERS) and "usted" not in t:
+        return "pt"
+    en = sum(w in EN_WORDS for w in words)
+    es = sum(w in ES_WORDS for w in words)
+    if len(words) < 2 and not (words and words[0] in GREETING_WORDS):
+        return None
+    if en > es:
+        return "en"
+    if es >= 1:
+        return "es"  # a tie goes to Spanish, the language the app used before English existed
+    return None
 
 AMOUNT_RE = re.compile(r"(?<![\w/])(?:\$|usd|cop|ars|r\$)?\s*(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?!\s*/)")
 DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b")
@@ -62,6 +119,12 @@ MONTH_NAMES = {m: i + 1 for i, m in enumerate(["enero", "febrero", "marzo", "abr
 MONTH_NAMES.update({m: i + 1 for i, m in enumerate(["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho",
                                                     "agosto", "setembro", "outubro", "novembro", "dezembro"])})
 MONTH_NAMES["setiembre"] = 9
+EN_MONTHS = {m: i + 1 for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august",
+                                            "september", "october", "november", "december"])}
+_EN_MONTH = "|".join(sorted(EN_MONTHS, key=len, reverse=True))
+# "June 12", "June 12th, 2026", "12 June", "12th of June 2026"
+EN_DATE_RE = re.compile(r"\b(?:(" + _EN_MONTH + r")\s+(\d{1,2})(?:st|nd|rd|th)?|(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(" + _EN_MONTH
+                        + r"))(?:,?\s+(\d{4}))?\b")
 NAMED_DATE_RE = re.compile(r"\b(\d{1,2})\s+de\s+(" + "|".join(sorted(MONTH_NAMES, key=len, reverse=True)) + r")(?:\s+(?:de|del)\s+(\d{4}))?\b")
 CUSTOMER_ID_RE = re.compile(r"\bCLI-[A-Z0-9]{6,}\b", re.I)
 
@@ -82,7 +145,10 @@ def _parse_amount(raw: str) -> float | None:
 def understand(text: str, merchants: list[str], today: datetime, expecting: str | None = None,
                session_customer_id: str | None = None) -> Understanding:
     t = f" {_norm(text)} "
-    u = Understanding(language="pt" if sum(m in t for m in PT_MARKERS) >= 1 and "usted" not in t else "es")
+    t_lang = t
+    for m in sorted(merchants, key=len, reverse=True):  # a merchant called "The ..." or "La ..." says nothing
+        t_lang = t_lang.replace(_norm(m), " ")
+    u = Understanding(language=detect_language(t_lang))
 
     ids = {m.upper() for m in CUSTOMER_ID_RE.findall(text)}
     u.other_customer_reference = bool(ids - {(session_customer_id or "").upper()})
@@ -93,19 +159,28 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
             u.merchant = m
             break
     named = NAMED_DATE_RE.search(_norm(text))
-    text_wo_dates = NAMED_DATE_RE.sub(" ", _norm(text))
+    en_named = EN_DATE_RE.search(_norm(text))
+    text_wo_dates = EN_DATE_RE.sub(" ", NAMED_DATE_RE.sub(" ", _norm(text)))
     text_wo_dates = DATE_RE.sub(" ", text_wo_dates)
     for raw in AMOUNT_RE.findall(text_wo_dates.lower()):
         val = _parse_amount(raw)
         if val and val >= 1 and not (1900 <= val <= 2100 and "." not in raw and "," not in raw):
             u.amount = val
             break
-    if "ayer" in t or "ontem" in t:
+    if "ayer" in t or "ontem" in t or "yesterday" in t:
         u.date = (today - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    elif " hoy " in t or " hoje " in t:
+    elif " hoy " in t or " hoje " in t or " today " in t:
         u.date = today.replace(hour=0, minute=0, second=0, microsecond=0)
     elif named:
         d, mo, y = int(named.group(1)), MONTH_NAMES[named.group(2)], named.group(3)
+        year = int(y) if y else (today.year if (mo, d) <= (today.month, today.day) else today.year - 1)
+        try:
+            u.date = datetime(year, mo, d)
+        except ValueError:
+            pass
+    elif en_named:
+        mo = EN_MONTHS[en_named.group(1) or en_named.group(4)]
+        d, y = int(en_named.group(2) or en_named.group(3)), en_named.group(5)
         year = int(y) if y else (today.year if (mo, d) <= (today.month, today.day) else today.year - 1)
         try:
             u.date = datetime(year, mo, d)
@@ -119,7 +194,7 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         except ValueError:
             pass
 
-    u.asked_for_secret = any(k in t for k in SECRET) and any(k in t for k in ["pid", "pedi", "solicit", "dame", "dar ", "piden", "pediram", "pediu"])
+    u.asked_for_secret = any(k in t for k in SECRET) and any(k in t for k in ASKED)
     # Negatives first: "no comparti" contains "comparti".
     if any(k in t for k in ["no lo di", "no comparti", "nao passei", "nao compartilhei", "no di ", "no le di", "nunca lo di", "nunca di"]):
         u.shared_secret = False
@@ -138,7 +213,7 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.intent = "file_claim"
     elif expecting == "confirm" and CONFIRM_YES.match(t.strip()) and not any(k in t for k in CLAIM):
         u.intent = "confirm_mine"
-    elif any(k in t for k in CONTACT) and any(k in t for k in ["banco", "bank", "del banco", "do banco", "supuestamente", "decia ser", "dizia ser"]):
+    elif any(k in t for k in CONTACT) and any(k in t for k in FROM_BANK):
         u.intent = "check_contact"
     elif any(k in t for k in CLAIM):  # before MINE: "no fui yo" contains "fui yo"
         u.intent = "file_claim" if expecting == "confirm" else "dispute_charge"
@@ -146,7 +221,7 @@ def understand(text: str, merchants: list[str], today: datetime, expecting: str 
         u.intent = "confirm_mine"
     elif any(k in t for k in OUT_OF_SCOPE):
         u.intent = "out_of_scope"
-    elif u.amount or u.merchant or any(k in t for k in ["cargo", "cobro", "compra", "cobranca", "debito", "movimiento", "transaccion", "movimentacao"]) or any(k in t for k in CLAIM) or any(k in t for k in PROBLEM):
+    elif u.amount or u.merchant or any(k in t for k in CHARGE_WORDS) or any(k in t for k in CLAIM) or any(k in t for k in PROBLEM):
         u.intent = "dispute_charge"
     elif any(t.strip().startswith(g) for g in GREETING):
         u.intent = "greeting"

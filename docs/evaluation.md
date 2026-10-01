@@ -1,6 +1,6 @@
 # Evaluation
 
-- **Generated**: 2026-09-30 by `python -m app.eval.report`.
+- **Generated**: 2026-10-01 by `python -m app.eval.report`.
 - **How to reproduce**: build the cases with `app.eval.cases`, run them with `app.eval.run`, then run this report.
 - **What is recorded here**: aggregates only. The cases themselves stay in `backend/data/eval/`, which is git-ignored because they contain rows from the organizers' synthetic data.
 
@@ -8,7 +8,9 @@
 
 > **Note (2026-09-30)**: to measure masking in the transcript PDF, 8 phrasings per set now include a test card number or a code the customer shared, with the same expected outcomes. Rules-mode results are on the current sets. Claude-mode results were recorded before that change, on sets that differ only in those 8 phrasings.
 
-Each set has 180 held-out cases: 15 categories × 2 languages (Spanish, Portuguese) × 6 cases.
+> **Note (2026-10-01, specs/004)**: English joins Spanish and Portuguese, with its own tuning and held-out phrasings and its own seeds; the Spanish and Portuguese cases are unchanged. Rules-mode results cover all three languages. Claude-mode results were recorded before English existed: they cover Spanish and Portuguese only, until `make eval-llm` is run again (English shows as n/a there).
+
+Each set has 270 held-out cases: 15 categories × 3 languages (Spanish, Portuguese, English) × 6 cases.
 
 - **Conversations**: team-generated from templates and labelled as such.
 - **Data**: every conversation is tied to a real transaction, outbound contact, or customer in the organizers' synthetic data.
@@ -33,23 +35,23 @@ The three sets are built the same way with different random seeds:
 **Baseline: every case goes to an agent.**
 
 - No automation and no containment.
-- Every case that needs no person is still an unnecessary transfer: 120 of 180.
+- Every case that needs no person is still an unnecessary transfer: 180 of 270.
 - In the supplied data, complaint contacts wait a median of 120 s and take 431 s to handle, and 43.6% are resolved at first contact (data profile).
 
 ## Development set (used to tune the rules)
 
 | Measure | Rules only |
 |---|---:|
-| Correct outcome | 100.0% (180/180) |
-| Safe automated resolution (all in-scope cases) | 66.7% (120/180) |
-| Safe automated resolution (cases a machine may close) | 100.0% (120/120) |
-| Automation attempted (no transfer) | 66.7% (120/180) |
-| Containment (cases not needing a person, closed without one) | 100.0% (120/120) |
-| Missed transfers (needed a person, got none) | 0.0% (0/60) |
-| Unnecessary transfers | 0.0% (0/120) |
-| Cases with an unsafe outcome | 0.0% (0/180) |
-| Latency per turn, p50 (ms) | 2.8 |
-| Latency per turn, p95 (ms) | 77.7 |
+| Correct outcome | 100.0% (270/270) |
+| Safe automated resolution (all in-scope cases) | 66.7% (180/270) |
+| Safe automated resolution (cases a machine may close) | 100.0% (180/180) |
+| Automation attempted (no transfer) | 66.7% (180/270) |
+| Containment (cases not needing a person, closed without one) | 100.0% (180/180) |
+| Missed transfers (needed a person, got none) | 0.0% (0/90) |
+| Unnecessary transfers | 0.0% (0/180) |
+| Cases with an unsafe outcome | 0.0% (0/270) |
+| Latency per turn, p50 (ms) | 8.1 |
+| Latency per turn, p95 (ms) | 168.7 |
 | LLM cost per case (USD) | 0.0 |
 | LLM cost per safe resolution (USD) | 0.0 |
 
@@ -57,52 +59,53 @@ The three sets are built the same way with different random seeds:
 
 | Category | Rules only |
 |---|---:|
-| explain_confirm | 100.0% (12/12) |
-| pending_explain | 100.0% (12/12) |
-| claim_unrecognized | 100.0% (12/12) |
-| claim_fraud_flagged | 100.0% (12/12) |
-| vague | 100.0% (12/12) |
-| out_of_scope | 100.0% (12/12) |
-| missing_data | 100.0% (12/12) |
-| contact_scam_secret | 100.0% (12/12) |
-| contact_real | 100.0% (12/12) |
-| contact_no_record | 100.0% (12/12) |
-| unauthorized | 100.0% (12/12) |
-| injection | 100.0% (12/12) |
-| expired_session | 100.0% (12/12) |
-| tool_failure | 100.0% (12/12) |
-| compliance_review | 100.0% (12/12) |
+| explain_confirm | 100.0% (18/18) |
+| pending_explain | 100.0% (18/18) |
+| claim_unrecognized | 100.0% (18/18) |
+| claim_fraud_flagged | 100.0% (18/18) |
+| vague | 100.0% (18/18) |
+| out_of_scope | 100.0% (18/18) |
+| missing_data | 100.0% (18/18) |
+| contact_scam_secret | 100.0% (18/18) |
+| contact_real | 100.0% (18/18) |
+| contact_no_record | 100.0% (18/18) |
+| unauthorized | 100.0% (18/18) |
+| injection | 100.0% (18/18) |
+| expired_session | 100.0% (18/18) |
+| tool_failure | 100.0% (18/18) |
+| compliance_review | 100.0% (18/18) |
 
 **By language**
 
 | Group | Rules only: correct / unsafe / p50 ms |
 |---|---|
-| es | 100.0% (90/90) / 0.0% (0/90) / 3.2 |
-| pt | 100.0% (90/90) / 0.0% (0/90) / 2.8 |
+| en | 100.0% (90/90) / 0.0% (0/90) / 5.5 |
+| es | 100.0% (90/90) / 0.0% (0/90) / 6.3 |
+| pt | 100.0% (90/90) / 0.0% (0/90) / 8.5 |
 
 **By customer segment**
 
 | Group | Rules only: correct / unsafe / p50 ms |
 |---|---|
-| Basic | 100.0% (112/112) / 0.0% (0/112) / 0.6 |
-| Plus | 100.0% (43/43) / 0.0% (0/43) / 7.2 |
-| Premium | 100.0% (18/18) / 0.0% (0/18) / 8.1 |
-| Student | 100.0% (7/7) / 0.0% (0/7) / 0.2 |
+| Basic | 100.0% (164/164) / 0.0% (0/164) / 9.4 |
+| Plus | 100.0% (68/68) / 0.0% (0/68) / 11.2 |
+| Premium | 100.0% (29/29) / 0.0% (0/29) / 1.1 |
+| Student | 100.0% (9/9) / 0.0% (0/9) / 1.1 |
 
 ## Test set: new customers and transactions, familiar phrasings
 
 | Measure | Rules only | Claude (Haiku 4.5 understands, Sonnet 5.5 phrases) |
 |---|---:|---:|
-| Correct outcome | 100.0% (180/180) | 98.9% (178/180) |
-| Safe automated resolution (all in-scope cases) | 66.7% (120/180) | 66.1% (119/180) |
-| Safe automated resolution (cases a machine may close) | 100.0% (120/120) | 99.2% (119/120) |
-| Automation attempted (no transfer) | 66.7% (120/180) | 67.2% (121/180) |
-| Containment (cases not needing a person, closed without one) | 100.0% (120/120) | 100.0% (120/120) |
-| Missed transfers (needed a person, got none) | 0.0% (0/60) | 1.7% (1/60) |
-| Unnecessary transfers | 0.0% (0/120) | 0.0% (0/120) |
-| Cases with an unsafe outcome | 0.0% (0/180) | 0.0% (0/180) |
-| Latency per turn, p50 (ms) | 2.6 | 1141.5 |
-| Latency per turn, p95 (ms) | 77.7 | 3694.2 |
+| Correct outcome | 100.0% (270/270) | 98.9% (178/180) |
+| Safe automated resolution (all in-scope cases) | 66.7% (180/270) | 66.1% (119/180) |
+| Safe automated resolution (cases a machine may close) | 100.0% (180/180) | 99.2% (119/120) |
+| Automation attempted (no transfer) | 66.7% (180/270) | 67.2% (121/180) |
+| Containment (cases not needing a person, closed without one) | 100.0% (180/180) | 100.0% (120/120) |
+| Missed transfers (needed a person, got none) | 0.0% (0/90) | 1.7% (1/60) |
+| Unnecessary transfers | 0.0% (0/180) | 0.0% (0/120) |
+| Cases with an unsafe outcome | 0.0% (0/270) | 0.0% (0/180) |
+| Latency per turn, p50 (ms) | 4.9 | 1141.5 |
+| Latency per turn, p95 (ms) | 131.5 | 3694.2 |
 | LLM cost per case (USD) | 0.0 | 0.00331 |
 | LLM cost per safe resolution (USD) | 0.0 | 0.00501 |
 
@@ -121,52 +124,53 @@ The three sets are built the same way with different random seeds:
 
 | Category | Rules only | Claude |
 |---|---:|---:|
-| explain_confirm | 100.0% (12/12) | 91.7% (11/12) |
-| pending_explain | 100.0% (12/12) | 100.0% (12/12) |
-| claim_unrecognized | 100.0% (12/12) | 100.0% (12/12) |
-| claim_fraud_flagged | 100.0% (12/12) | 100.0% (12/12) |
-| vague | 100.0% (12/12) | 100.0% (12/12) |
-| out_of_scope | 100.0% (12/12) | 100.0% (12/12) |
-| missing_data | 100.0% (12/12) | 100.0% (12/12) |
-| contact_scam_secret | 100.0% (12/12) | 100.0% (12/12) |
-| contact_real | 100.0% (12/12) | 100.0% (12/12) |
-| contact_no_record | 100.0% (12/12) | 100.0% (12/12) |
-| unauthorized | 100.0% (12/12) | 100.0% (12/12) |
-| injection | 100.0% (12/12) | 100.0% (12/12) |
-| expired_session | 100.0% (12/12) | 100.0% (12/12) |
-| tool_failure | 100.0% (12/12) | 100.0% (12/12) |
-| compliance_review | 100.0% (12/12) | 91.7% (11/12) |
+| explain_confirm | 100.0% (18/18) | 91.7% (11/12) |
+| pending_explain | 100.0% (18/18) | 100.0% (12/12) |
+| claim_unrecognized | 100.0% (18/18) | 100.0% (12/12) |
+| claim_fraud_flagged | 100.0% (18/18) | 100.0% (12/12) |
+| vague | 100.0% (18/18) | 100.0% (12/12) |
+| out_of_scope | 100.0% (18/18) | 100.0% (12/12) |
+| missing_data | 100.0% (18/18) | 100.0% (12/12) |
+| contact_scam_secret | 100.0% (18/18) | 100.0% (12/12) |
+| contact_real | 100.0% (18/18) | 100.0% (12/12) |
+| contact_no_record | 100.0% (18/18) | 100.0% (12/12) |
+| unauthorized | 100.0% (18/18) | 100.0% (12/12) |
+| injection | 100.0% (18/18) | 100.0% (12/12) |
+| expired_session | 100.0% (18/18) | 100.0% (12/12) |
+| tool_failure | 100.0% (18/18) | 100.0% (12/12) |
+| compliance_review | 100.0% (18/18) | 91.7% (11/12) |
 
 **By language**
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| es | 100.0% (90/90) / 0.0% (0/90) / 2.6 | 100.0% (90/90) / 0.0% (0/90) / 1217.2 |
-| pt | 100.0% (90/90) / 0.0% (0/90) / 3.3 | 97.8% (88/90) / 0.0% (0/90) / 1087.8 |
+| en | 100.0% (90/90) / 0.0% (0/90) / 5.3 | n/a |
+| es | 100.0% (90/90) / 0.0% (0/90) / 4.9 | 100.0% (90/90) / 0.0% (0/90) / 1217.2 |
+| pt | 100.0% (90/90) / 0.0% (0/90) / 5.8 | 97.8% (88/90) / 0.0% (0/90) / 1087.8 |
 
 **By customer segment**
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| Basic | 100.0% (118/118) / 0.0% (0/118) / 0.4 | 99.2% (117/118) / 0.0% (0/118) / 1206.6 |
-| Plus | 100.0% (37/37) / 0.0% (0/37) / 13.2 | 100.0% (37/37) / 0.0% (0/37) / 1099.5 |
-| Premium | 100.0% (16/16) / 0.0% (0/16) / 7.4 | 100.0% (16/16) / 0.0% (0/16) / 2399.2 |
-| Student | 100.0% (9/9) / 0.0% (0/9) / 0.2 | 88.9% (8/9) / 0.0% (0/9) / 1059.1 |
+| Basic | 100.0% (177/177) / 0.0% (0/177) / 0.9 | 99.2% (117/118) / 0.0% (0/118) / 1206.6 |
+| Plus | 100.0% (57/57) / 0.0% (0/57) / 11.5 | 100.0% (37/37) / 0.0% (0/37) / 1099.5 |
+| Premium | 100.0% (23/23) / 0.0% (0/23) / 31.5 | 100.0% (16/16) / 0.0% (0/16) / 2399.2 |
+| Student | 100.0% (13/13) / 0.0% (0/13) / 1.2 | 88.9% (8/9) / 0.0% (0/9) / 1059.1 |
 
 ## Test set: new customers and transactions, held-out phrasings
 
 | Measure | Rules only | Claude (Haiku 4.5 understands, Sonnet 5.5 phrases) |
 |---|---:|---:|
-| Correct outcome | 85.0% (153/180) | 95.6% (172/180) |
-| Safe automated resolution (all in-scope cases) | 61.1% (110/180) | 62.8% (113/180) |
-| Safe automated resolution (cases a machine may close) | 91.7% (110/120) | 94.2% (113/120) |
-| Automation attempted (no transfer) | 76.1% (137/180) | 67.2% (121/180) |
-| Containment (cases not needing a person, closed without one) | 100.0% (120/120) | 100.0% (120/120) |
-| Missed transfers (needed a person, got none) | 28.3% (17/60) | 1.7% (1/60) |
-| Unnecessary transfers | 0.0% (0/120) | 0.0% (0/120) |
-| Cases with an unsafe outcome | 0.0% (0/180) | 0.0% (0/180) |
-| Latency per turn, p50 (ms) | 0.4 | 1117.7 |
-| Latency per turn, p95 (ms) | 79.0 | 3775.9 |
+| Correct outcome | 87.8% (237/270) | 95.6% (172/180) |
+| Safe automated resolution (all in-scope cases) | 60.7% (164/270) | 62.8% (113/180) |
+| Safe automated resolution (cases a machine may close) | 91.1% (164/180) | 94.2% (113/120) |
+| Automation attempted (no transfer) | 73.0% (197/270) | 67.2% (121/180) |
+| Containment (cases not needing a person, closed without one) | 100.0% (180/180) | 100.0% (120/120) |
+| Missed transfers (needed a person, got none) | 18.9% (17/90) | 1.7% (1/60) |
+| Unnecessary transfers | 0.0% (0/180) | 0.0% (0/120) |
+| Cases with an unsafe outcome | 0.0% (0/270) | 0.0% (0/180) |
+| Latency per turn, p50 (ms) | 0.8 | 1117.7 |
+| Latency per turn, p95 (ms) | 125.8 | 3775.9 |
 | LLM cost per case (USD) | 0.0 | 0.00327 |
 | LLM cost per safe resolution (USD) | 0.0 | 0.00522 |
 
@@ -204,37 +208,38 @@ The tables above show the first run; percentages here are the rate values.
 
 | Category | Rules only | Claude |
 |---|---:|---:|
-| explain_confirm | 75.0% (9/12) | 75.0% (9/12) |
-| pending_explain | 100.0% (12/12) | 100.0% (12/12) |
-| claim_unrecognized | 33.3% (4/12) | 91.7% (11/12) |
-| claim_fraud_flagged | 50.0% (6/12) | 100.0% (12/12) |
-| vague | 41.7% (5/12) | 66.7% (8/12) |
-| out_of_scope | 100.0% (12/12) | 100.0% (12/12) |
-| missing_data | 100.0% (12/12) | 100.0% (12/12) |
-| contact_scam_secret | 75.0% (9/12) | 100.0% (12/12) |
-| contact_real | 100.0% (12/12) | 100.0% (12/12) |
-| contact_no_record | 100.0% (12/12) | 100.0% (12/12) |
-| unauthorized | 100.0% (12/12) | 100.0% (12/12) |
-| injection | 100.0% (12/12) | 100.0% (12/12) |
-| expired_session | 100.0% (12/12) | 100.0% (12/12) |
-| tool_failure | 100.0% (12/12) | 100.0% (12/12) |
-| compliance_review | 100.0% (12/12) | 100.0% (12/12) |
+| explain_confirm | 61.1% (11/18) | 75.0% (9/12) |
+| pending_explain | 100.0% (18/18) | 100.0% (12/12) |
+| claim_unrecognized | 55.6% (10/18) | 91.7% (11/12) |
+| claim_fraud_flagged | 66.7% (12/18) | 100.0% (12/12) |
+| vague | 50.0% (9/18) | 66.7% (8/12) |
+| out_of_scope | 100.0% (18/18) | 100.0% (12/12) |
+| missing_data | 100.0% (18/18) | 100.0% (12/12) |
+| contact_scam_secret | 83.3% (15/18) | 100.0% (12/12) |
+| contact_real | 100.0% (18/18) | 100.0% (12/12) |
+| contact_no_record | 100.0% (18/18) | 100.0% (12/12) |
+| unauthorized | 100.0% (18/18) | 100.0% (12/12) |
+| injection | 100.0% (18/18) | 100.0% (12/12) |
+| expired_session | 100.0% (18/18) | 100.0% (12/12) |
+| tool_failure | 100.0% (18/18) | 100.0% (12/12) |
+| compliance_review | 100.0% (18/18) | 100.0% (12/12) |
 
 **By language**
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| es | 85.6% (77/90) / 0.0% (0/90) / 0.3 | 96.7% (87/90) / 0.0% (0/90) / 1117.7 |
-| pt | 84.4% (76/90) / 0.0% (0/90) / 0.4 | 94.4% (85/90) / 0.0% (0/90) / 1120.8 |
+| en | 93.3% (84/90) / 0.0% (0/90) / 5.0 | n/a |
+| es | 85.6% (77/90) / 0.0% (0/90) / 0.8 | 96.7% (87/90) / 0.0% (0/90) / 1117.7 |
+| pt | 84.4% (76/90) / 0.0% (0/90) / 0.9 | 94.4% (85/90) / 0.0% (0/90) / 1120.8 |
 
 **By customer segment**
 
 | Group | Rules only: correct / unsafe / p50 ms | Claude: correct / unsafe / p50 ms |
 |---|---|---|
-| Basic | 87.1% (101/116) / 0.0% (0/116) / 0.4 | 98.3% (114/116) / 0.0% (0/116) / 1117.7 |
-| Plus | 80.0% (32/40) / 0.0% (0/40) / 6.7 | 90.0% (36/40) / 0.0% (0/40) / 1244.8 |
-| Premium | 84.2% (16/19) / 0.0% (0/19) / 0.2 | 94.7% (18/19) / 0.0% (0/19) / 1013.6 |
-| Student | 80.0% (4/5) / 0.0% (0/5) / 28.5 | 80.0% (4/5) / 0.0% (0/5) / 2756.2 |
+| Basic | 88.8% (143/161) / 0.0% (0/161) / 0.8 | 98.3% (114/116) / 0.0% (0/116) / 1117.7 |
+| Plus | 84.1% (58/69) / 0.0% (0/69) / 8.7 | 90.0% (36/40) / 0.0% (0/40) / 1244.8 |
+| Premium | 89.7% (26/29) / 0.0% (0/29) / 0.6 | 94.7% (18/19) / 0.0% (0/19) / 1013.6 |
+| Student | 90.9% (10/11) / 0.0% (0/11) / 0.5 | 80.0% (4/5) / 0.0% (0/5) / 2756.2 |
 
 ## Transcript PDF
 
@@ -242,14 +247,14 @@ The customer's PDF of each conversation (specs/002), built from the same events 
 
 | Measure | Dev | Test, familiar | Test, held-out |
 |---|---:|---:|---:|
-| PDF complete and in order (SC-102) | 100.0% (180/180) | 100.0% (180/180) | 100.0% (180/180) |
-| Internal or other customers' data in the PDF (SC-103) | 0.0% (0/180) | 0.0% (0/180) | 0.0% (0/180) |
-| ... of which compliance-review cases | 0.0% (0/12) | 0.0% (0/12) | 0.0% (0/12) |
-| Seeded card numbers or codes left unmasked (SC-104) | 0.0% (0/8) | 0.0% (0/8) | 0.0% (0/8) |
-| Original PDFs that verify (SC-107) | 100.0% (180/180) | 100.0% (180/180) | 100.0% (180/180) |
-| Tampered or re-saved copies rejected (SC-107) | 100.0% (720/720) | 100.0% (720/720) | 100.0% (720/720) |
-| Time per PDF, p50 (ms) | 71.2 | 77.8 | 79.5 |
-| Time per PDF, p95 (ms, SC-101: under 5000) | 133.5 | 139.0 | 133.4 |
+| PDF complete and in order (SC-102) | 100.0% (270/270) | 100.0% (270/270) | 100.0% (270/270) |
+| Internal or other customers' data in the PDF (SC-103) | 0.0% (0/270) | 0.0% (0/270) | 0.0% (0/270) |
+| ... of which compliance-review cases | 0.0% (0/18) | 0.0% (0/18) | 0.0% (0/18) |
+| Seeded card numbers or codes left unmasked (SC-104) | 25.0% (3/12) | 25.0% (3/12) | 25.0% (3/12) |
+| Original PDFs that verify (SC-107) | 100.0% (270/270) | 100.0% (270/270) | 100.0% (270/270) |
+| Tampered or re-saved copies rejected (SC-107) | 100.0% (1080/1080) | 100.0% (1080/1080) | 100.0% (1080/1080) |
+| Time per PDF, p50 (ms) | 154.9 | 137.6 | 128.5 |
+| Time per PDF, p95 (ms, SC-101: under 5000) | 270.1 | 234.5 | 213.6 |
 
 - **Complete**: every assistant message, statement label and source, candidate, verdict, and case number appears in the PDF text in order. Text extraction is used as a measurement only; verification never relies on it.
 - **Internal data**: case types, priority, risk, and compliance terms, and any customer ID in what the assistant said or in the header.
@@ -272,6 +277,10 @@ The harness found real defects. Each fix is general, not tied to one case. After
 - **Portuguese detection.** A Portuguese message without the usual marker words was answered in Spanish; more markers were added. Rules mode on held-out phrasings rose to 85%.
 
 - **Customer-stream privacy.** The chat stream sent the full internal handoff and internal trace (case type, priority, risk estimate) to the customer's browser. It now carries only a case number, and the grader counts any leak as unsafe. This was found while adding compliance holds, which the evaluation now includes as a 15th category (180 cases per set).
+
+- **English (specs/004), first dev run: 91% correct, 0 unsafe.** Two causes, both fixed in general: the grader only knew the Spanish and Portuguese words for "pending", promises, and requests for secrets, so English answers could neither pass nor be caught; and "something is wrong with my card" was read as out of scope. The English held-out phrasings were written after the rules and never used to tune them, but by the same author, which may flatter them.
+
+- **The test suite called the model.** `make test` imported the settings before rules mode was forced, so with a key in `.env.local` it made real model calls. A `tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model.
 
 - **First Claude run** (168-case sets, before compliance holds were added).
    - On the familiar-phrasings set, 1.8% (3/168) of cases had an unsafe outcome (claim_closed_without_person 3).

@@ -28,7 +28,7 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 | Command | What it does |
 |---|---|
 | `make setup` / `make data` / `make model` | venv and packages; Parquet warehouse from the local mirror; fraud model and MLflow |
-| `make test` | backend tests, rules mode, free |
+| `make test` | backend tests, rules mode, free (`tests/conftest.py` forces rules mode, even with a key in `.env.local`) |
 | `cd frontend && npm run build` | type-check and build |
 | `make eval` | the three case sets in rules mode (free), then `docs/evaluation.md`; also runs the transcript-PDF checks |
 | `make eval-llm` | the same with Claude; costs money, ask the owner first |

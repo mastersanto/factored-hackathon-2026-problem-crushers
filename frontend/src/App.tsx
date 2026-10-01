@@ -13,16 +13,13 @@ interface Session { id: string; conversationRef: string; customer: DemoCustomer 
 export default function App() {
   const [view, setView] = useState<View>('customer')
   const [session, setSession] = useState<Session | null>(null)
-  // The app language (specs/004): from the browser, or the visitor's stored choice. The chat reports its own
-  // language, which follows the latest reply once there is one (specs/003 rule, until specs/004 US3).
-  const { lang: appLang } = useLanguage()
-  const [chatLang, setChatLang] = useState<Lang>(appLang)
+  // The app language (specs/004): from the browser or the visitor's stored choice, then the language the customer
+  // writes in. One language for every screen, chat included (FR-408).
+  const { lang } = useLanguage()
   const health = useQuery({ queryKey: ['health'], queryFn: api.health })
-  const lang: Lang = view === 'customer' && session ? chatLang : appLang
-  const T = TEXT[appLang]
+  const T = TEXT[lang]
   useEffect(() => { document.documentElement.lang = lang }, [lang])
-  const onLang = useCallback((l: Lang) => setChatLang(l), [])
-  const leave = useCallback(() => { setSession(null); setChatLang(appLang) }, [appLang])
+  const leave = useCallback(() => setSession(null), [])
 
   return (
     <div className="app">
@@ -56,8 +53,8 @@ export default function App() {
           : session
             ? <Chat key={session.id} sessionId={session.id} conversationRef={session.conversationRef}
                 firstName={session.customer.first_name} country={session.customer.country}
-                suggestions={suggestionsFor(session.customer)} initialLang={appLang} onChangeCustomer={leave} onLang={onLang} />
-            : <DemoLogin lang={appLang} onStart={setSession} />}
+                suggestions={suggestionsFor(session.customer)} onChangeCustomer={leave} />
+            : <DemoLogin lang={lang} onStart={setSession} />}
       </main>
       <footer className="page-footer">{T.app.footer}</footer>
     </div>
@@ -74,7 +71,7 @@ function DemoLogin({ lang, onStart }: { lang: Lang; onStart: (s: Session) => voi
     setOpening(c.customer_id)
     setStartError(null)
     try {
-      const s = await api.startSession(c.customer_id)
+      const s = await api.startSession(c.customer_id, lang)
       onStart({ id: s.session_id, conversationRef: s.conversation_ref, customer: c })
     } catch (err) {
       // 429: the per-visitor session limit on the public demo (SESSIONS_PER_IP_HOUR).
@@ -133,7 +130,7 @@ function DemoLogin({ lang, onStart }: { lang: Lang; onStart: (s: Session) => voi
   )
 }
 
-/** Example messages for the demo, built from the customer's own recent data (Spanish and Portuguese). */
+/** Example messages for the demo, built from the customer's own recent data (Spanish, Portuguese, and English). */
 function suggestionsFor(c: DemoCustomer): string[] {
   const h = c.hint
   const out: string[] = []
@@ -141,6 +138,7 @@ function suggestionsFor(c: DemoCustomer): string[] {
     const amount = Number(h.amount).toFixed(2)
     out.push(h.merchant ? `No reconozco un cargo de ${amount} en ${h.merchant}` : `No reconozco un cargo de ${amount}`)
     if (h.merchant) out.push(`Não reconheço uma cobrança de ${amount} no ${h.merchant}`)
+    if (h.merchant) out.push(`I don't recognize a charge of ${amount} at ${h.merchant}`)
   }
   if (h.channel && h.date) {
     const [y, m, d] = String(h.date).slice(0, 10).split('-')

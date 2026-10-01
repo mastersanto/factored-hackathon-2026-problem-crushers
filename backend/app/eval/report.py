@@ -7,7 +7,10 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from app.eval.cases import CATEGORIES, EVAL_DIR
+from app.eval.cases import CATEGORIES, EVAL_DIR, LANG_OFFSET
+
+LANG_NAMES = {"es": "Spanish", "pt": "Portuguese", "en": "English"}
+N_LANGS = len(LANG_OFFSET)
 from app.eval.run import REPORT
 
 SETS = [("dev", "Development set (used to tune the rules)"),
@@ -57,7 +60,9 @@ def main() -> None:
         "",
         "> **Note (2026-09-30)**: to measure masking in the transcript PDF, 8 phrasings per set now include a test card number or a code the customer shared, with the same expected outcomes. Rules-mode results are on the current sets. Claude-mode results were recorded before that change, on sets that differ only in those 8 phrasings.",
         "",
-        f"Each set has {len(CATEGORIES) * 12} held-out cases: {len(CATEGORIES)} categories × 2 languages (Spanish, Portuguese) × 6 cases.",
+        "> **Note (2026-10-01, specs/004)**: English joins Spanish and Portuguese, with its own tuning and held-out phrasings and its own seeds; the Spanish and Portuguese cases are unchanged. Rules-mode results cover all three languages. Claude-mode results were recorded before English existed: they cover Spanish and Portuguese only, until `make eval-llm` is run again (English shows as n/a there).",
+        "",
+        f"Each set has {len(CATEGORIES) * 6 * N_LANGS} held-out cases: {len(CATEGORIES)} categories × {N_LANGS} languages ({', '.join(LANG_NAMES[l] for l in LANG_OFFSET)}) × 6 cases.",
         "",
         "- **Conversations**: team-generated from templates and labelled as such.",
         "- **Data**: every conversation is tied to a real transaction, outbound contact, or customer in the organizers' synthetic data.",
@@ -82,7 +87,7 @@ def main() -> None:
               "**Baseline: every case goes to an agent.**",
               "",
               "- No automation and no containment.",
-              f"- Every case that needs no person is still an unnecessary transfer: {sum(not c['needs_human'] for c in CATEGORIES.values()) * 12} of {len(CATEGORIES) * 12}.",
+              f"- Every case that needs no person is still an unnecessary transfer: {sum(not c['needs_human'] for c in CATEGORIES.values()) * 6 * N_LANGS} of {len(CATEGORIES) * 6 * N_LANGS}.",
               "- In the supplied data, complaint contacts wait a median of 120 s and take 431 s to handle, and 43.6% are resolved at first contact (data profile).",
               ""]
     for name, title in SETS:
@@ -167,7 +172,11 @@ def main() -> None:
               "",
               "- **Portuguese detection.** A Portuguese message without the usual marker words was answered in Spanish; more markers were added. Rules mode on held-out phrasings rose to 85%.",
               "",
-              "- **Customer-stream privacy.** The chat stream sent the full internal handoff and internal trace (case type, priority, risk estimate) to the customer's browser. It now carries only a case number, and the grader counts any leak as unsafe. This was found while adding compliance holds, which the evaluation now includes as a 15th category (180 cases per set)."]
+              "- **Customer-stream privacy.** The chat stream sent the full internal handoff and internal trace (case type, priority, risk estimate) to the customer's browser. It now carries only a case number, and the grader counts any leak as unsafe. This was found while adding compliance holds, which the evaluation now includes as a 15th category (180 cases per set).",
+              "",
+              "- **English (specs/004), first dev run: 91% correct, 0 unsafe.** Two causes, both fixed in general: the grader only knew the Spanish and Portuguese words for \"pending\", promises, and requests for secrets, so English answers could neither pass nor be caught; and \"something is wrong with my card\" was read as out of scope. The English held-out phrasings were written after the rules and never used to tune them, but by the same author, which may flatter them.",
+              "",
+              "- **The test suite called the model.** `make test` imported the settings before rules mode was forced, so with a key in `.env.local` it made real model calls. A `tests/conftest.py` now forces rules mode first, and a test fails if the suite ever has a model."]
     if all(f.exists() for f in first.values()):
         r1 = {n: json.loads(f.read_text())["repeats"][0]["aggregate"] for n, f in first.items()}
         lines += ["",

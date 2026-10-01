@@ -128,10 +128,10 @@ def _case_id() -> str:
 
 def _yes_no(text: str) -> bool | None:
     t = "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn").strip()
-    if re.match(r"^(si|sim|yes|claro|lo di|le di|passei|compartilhei)\b", t):
-        return True
-    if re.match(r"^(no|nao|nunca|para nada)\b", t):
+    if re.match(r"^(no|nao|nunca|para nada|nope|never|i didn't|i did not)\b", t):
         return False
+    if re.match(r"^(si|sim|yes|yeah|yep|claro|lo di|le di|passei|compartilhei|i did|i shared|i gave)\b", t):
+        return True
     return None
 
 
@@ -196,7 +196,7 @@ class Engine:
 
     def _turn(self, s: Session, text: str) -> Iterator[dict]:
         u = self._understand(s, text)
-        if s.stage in ("start", "closed") or u.intent in ("dispute_charge", "check_contact"):
+        if u.language:  # a clear language switches the conversation at any stage; an unclear one never does (FR-407)
             s.lang = u.language
         yield self._step("understand", intent=u.intent, source=u.source,
                          slots={k: v for k, v in u.model_dump(exclude={"language", "intent", "source"}).items() if v not in (None, False)})
@@ -269,7 +269,7 @@ class Engine:
 
     def _card(self, tx: dict, lang: str, n: int) -> dict:
         return {"option": n, "transaction_id": tx["transaction_id"], "when": M.when(tx["transaction_date"], lang),
-                "amount": M.money(tx["amount"], tx["currency"]), "merchant": tx["merchant_name"] or M.TX_KINDS[lang].get(tx["transaction_type"], tx["transaction_type"]),
+                "amount": M.money(tx["amount"], tx["currency"], lang), "merchant": tx["merchant_name"] or M.TX_KINDS[lang].get(tx["transaction_type"], tx["transaction_type"]),
                 "status": tx["transaction_status"],
                 # Raw values (specs/004, R6), kept server-side to re-word the card in any language; never streamed.
                 "raw": {"amount": tx["amount"], "currency": tx["currency"], "date": tx["transaction_date"].isoformat(),
@@ -435,9 +435,11 @@ def _yes_no_shared(text: str) -> bool | None:
     t = text.lower()
     # Negatives first: "no compartí" contains "compartí".
     if any(k in t for k in ["no compartí", "no comparti", "no di ", "no le di", "nunca di", "não passei", "nao passei",
-                            "não compartilhei", "nao compartilhei", "no hice clic", "não cliquei"]):
+                            "não compartilhei", "nao compartilhei", "no hice clic", "não cliquei",
+                            "didn't share", "did not share", "haven't shared", "have not shared", "never shared",
+                            "didn't give", "did not give", "didn't click", "did not click"]):
         return False
     if any(k in t for k in ["compartí", "comparti", "le di", "di el código", "di el codigo", "passei", "compartilhei",
-                            "hice clic", "cliqué", "cliquei"]):
+                            "hice clic", "cliqué", "cliquei", "shared", "i gave", "gave them", "gave the", "clicked"]):
         return True
     return None

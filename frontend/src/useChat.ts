@@ -11,14 +11,14 @@ export const STEP_ORDER = ['understand', 'decide', 'act', 'verify', 'escalate'] 
 
 /** Conversation state for one session. Each assistant turn keeps every streamed event, so the UI
  *  can show the verified statements, candidates, verdicts, handoffs, and the workflow trace. */
-export function useChat(sessionId: string | null, initialLang: Lang = 'es') {
+/** `lang` is the app language; `onLang` is called when a reply comes back in another one, so the whole app
+ *  follows the language the customer writes in (specs/004, FR-407, FR-408). */
+export function useChat(sessionId: string | null, lang: Lang, onLang: (lang: Lang) => void) {
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
   const [stage, setStage] = useState('start')
   // Quick replies for the assistant's latest question; null means "use the starter examples".
   const [replies, setReplies] = useState<string[] | null>(null)
-  // Language of the latest reply: picks the chat's fixed texts (specs/003, FR-201) and the PDF's (specs/002, FR-109).
-  const [lang, setLang] = useState<Lang>(initialLang)
   // At least one turn has finished: the transcript has something to export.
   const [completed, setCompleted] = useState(false)
 
@@ -28,7 +28,7 @@ export function useChat(sessionId: string | null, initialLang: Lang = 'es') {
     const at = Date.now()
     setTurns((t) => [...t, { role: 'customer', events: [], text, lang, at }, { role: 'assistant', events: [], lang, at }])
     const push = (e: ChatEvent) => {
-      if (e.type === 'done') { setStage(e.stage); setReplies(e.suggestions); setCompleted(true); if (e.lang) setLang(e.lang) }
+      if (e.type === 'done') { setStage(e.stage); setReplies(e.suggestions); setCompleted(true); if (e.lang && e.lang !== lang) onLang(e.lang) }
       setTurns((t) => {
         const copy = t.slice()
         const last = copy[copy.length - 1]
@@ -47,7 +47,7 @@ export function useChat(sessionId: string | null, initialLang: Lang = 'es') {
     } finally {
       setBusy(false)
     }
-  }, [sessionId, busy, lang])
+  }, [sessionId, busy, lang, onLang])
 
   const reset = useCallback(() => { setTurns([]); setStage('start'); setReplies(null); setCompleted(false) }, [])
   return { turns, busy, stage, replies, lang, completed, send, reset }
