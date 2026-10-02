@@ -1,4 +1,9 @@
 <!--
+Sync impact report (1.1.0 -> 1.2.0, MINOR: Development Workflow expanded)
+- Development Workflow: changes reach main only through a pull request with passing GitHub checks; each deployment is tagged and released; published history is never rewritten (specs/008).
+- Templates: no change. CLAUDE.md "Collaboration", README.md, and CONTRIBUTING.md updated.
+-->
+<!--
 Sync impact report (1.0.0 -> 1.1.0, MINOR: a supported language added, Principles I and III expanded)
 - Hackathon Constraints: English added as a supported language and as the base language.
 - Principle I: models may also translate the customer's words for display (marked); understanding never goes through a translation.
@@ -111,6 +116,8 @@ Rationale: judges assess measured quality and honesty about what is missing. Num
   - `make test` (workflow, guard, and security tests);
   - the frontend type-check and build;
   - the secret scan.
+- **Changes reach `main` only through a pull request** from a feature branch (`CONTRIBUTING.md`). It is merged with a merge commit once the GitHub checks (`frontend`, `backend`, `secrets`) pass, and its description records the local gates that need private data. `main` is protected so that this holds for everyone, the owner included.
+- **Each deployment is a version**: an annotated `vMAJOR.MINOR.PATCH` tag on the deployed commit of `main`, with a GitHub release whose notes name its features and its live revision. Tags are never moved, and published history is never rewritten.
 - **Workflow or understanding changes also require `make eval`** (rules mode, free). Claude-mode evaluation (`make eval-llm`, which costs money) is run before any reported number changes.
 - **A new behaviour that affects safety adds a test that fails without it.** Tests use a deliberately wrong fake model where the guard must hold regardless of the model.
 - **Where decisions are recorded**:
@@ -128,4 +135,4 @@ Rationale: judges assess measured quality and honesty about what is missing. Num
 - **Reviews**: every plan (`/speckit-plan`) runs its constitution check against Principles I-V. Any violation must be justified in the plan's complexity tracking, or removed.
 - **Owner**: the team owner approves amendments. Today that is the team's only builder.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-30 | **Last Amended**: 2026-09-30
+**Version**: 1.2.0 | **Ratified**: 2026-09-30 | **Last Amended**: 2026-10-02

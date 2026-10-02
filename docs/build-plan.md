@@ -144,6 +144,17 @@ customer (web chat, ES/PT)
   - greetings, thanks, and help get their own templates. At a pending question, the courtesy is answered briefly and the question is asked again;
   - the scope stays dispute intake: balances, loans, and transfers are still out of scope.
 
+### GitHub practices (feature 008, 2026-10-02)
+
+- **The team's request**: feature branches, small frequent merges through pull requests, clear commits, and tagged versions.
+- **Finding**: 44 commits, 43 straight to `main`; one teammate branch, merged locally; no pull requests, tags, or checks on GitHub.
+- **Decisions**:
+  - `main` is protected, admins included (the owner's choice): a pull request with passing checks, no required approval (one builder), merge commits only, branches deleted after merge;
+  - the GitHub checks run only what needs no private data: frontend build and lint, backend compile, `test_config.py`, and gitleaks. The tests, the evaluation, the UI checks, and the private secret scan stay local and are recorded in each pull request. A synthetic fixture warehouse for CI is future work;
+  - the seven past deployments are tagged on the exact commits Azure deployed (from `az containerapp revision list --all`), `v0.1.0` to `v0.5.0`, numbered MINOR for features and PATCH for fixes, with notes saying they were added on 2026-10-02. History is not rewritten;
+  - the deploy script deploys only a clean `main` equal to `origin/main`; `scripts/release.sh` tags and releases;
+  - versioned hooks check commit messages and run the private secret scan before every push.
+
 ### Why not TanStack AI (for now)
 
 - **It is pre-1.0.** `@tanstack/ai` is at 0.63 (published 2026-09-27), with breaking changes between releases. That is risky with five days left.

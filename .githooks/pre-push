@@ -1,0 +1,28 @@
+#!/bin/sh
+# The private secret scan on every push (specs/008, research R5; constitution IV). It prints only the count,
+# never the matching text. Without the private files (a teammate's machine) it warns and lets the push through:
+# the owner scans teammates' branches before merging them.
+PATTERNS="$HOME/.aws/factored-datathon-scan-patterns"
+BUCKET_FILE="$HOME/.aws/factored-datathon-bucket"
+if [ ! -f "$PATTERNS" ] || [ ! -f "$BUCKET_FILE" ]; then
+  echo "pre-push: private scan patterns not found on this machine; skipping the local secret scan" >&2
+  exit 0
+fi
+zero=0000000000000000000000000000000000000000
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue                     # deleting a ref: nothing to scan
+  if [ "$remote_sha" = "$zero" ]; then                        # a new branch or tag: what main doesn't have
+    base=$(git merge-base "$local_sha" origin/main 2>/dev/null || true)
+  else
+    base=$remote_sha
+  fi
+  if [ -n "$base" ]; then range="$base $local_sha"; else range="$(git hash-object -t tree /dev/null) $local_sha"; fi
+  # shellcheck disable=SC2086
+  count=$(git diff $range | grep -E -c -f "$PATTERNS" -e "$(cat "$BUCKET_FILE")" || true)
+  if [ "${count:-0}" -ne 0 ]; then
+    echo "pre-push: the secret scan found $count matching line(s) in $remote_ref; push blocked" >&2
+    status=1
+  fi
+done
+exit $status

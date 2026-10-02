@@ -110,6 +110,14 @@ A step-by-step validation script is in [`quickstart.md`](specs/001-dispute-intak
 
 See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what the evaluation does and doesn't prove, and what production would need: identity, retention, monitoring, capacity, and compliance review.
 
+## How we work
+
+- **Branches and pull requests**: every change is a branch, merged into a protected `main` through a pull request. Its GitHub checks are build and lint, the backend modules and the data-free tests, and a secret scan. The tests and evaluation that need the private data run locally, and each pull request records them.
+- **Versions**: each deployment is a tagged release, from `v0.1.0`, the first public deployment, to the submitted `v1.0.0`. See the [Releases](https://github.com/mastersanto/factored-hackathon-2026-problem-crushers/releases) page.
+- **Commits**: [Conventional Commits](https://www.conventionalcommits.org/).
+
+Details are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Documents
 
 | Document | What's in it |
@@ -125,4 +133,5 @@ See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what th
 | [`specs/005-suggestions-language/`](specs/005-suggestions-language/) | Suggestions (example messages and quick replies) always in the language the customer is using: spec, plan, research, contracts, tasks |
 | [`specs/006-inquiry-progress/`](specs/006-inquiry-progress/) | The progress panel follows the inquiry; replies follow what the customer wrote: spec, plan, research, data model, contracts, tasks |
 | [`specs/007-reactive-replies/`](specs/007-reactive-replies/) | "My last movements", and proper answers to greetings, thanks, and help: spec, plan, tasks |
+| [`specs/008-github-practices/`](specs/008-github-practices/) | Branches, pull requests with checks, a protected `main`, tagged releases: spec, plan, research, contracts, tasks |
 | [`specs/004-browser-language/`](specs/004-browser-language/) | The whole app in English, Spanish, or Portuguese: language from the browser, from what the customer writes, or a switcher; re-showing the conversation; spec, plan, research, data model, contracts, tasks |
