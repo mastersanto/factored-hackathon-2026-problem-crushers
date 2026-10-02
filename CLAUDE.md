@@ -23,6 +23,7 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
   - `specs/005-suggestions-language/`: example messages and quick replies always in the app's current language; examples built per language by the demo API. Built and deployed with 004 (revision 6).
   - `specs/006-inquiry-progress/`: the progress panel shows where the inquiry stands (customer stages per path, set by the engine), search replies name what was searched for, and pending questions are asked again. Built and deployed (revision 7, `aec4a64`, 2026-10-02).
   - `specs/007-reactive-replies/`: "my last movements" lists the customer's newest 5 (1-9 on request) as choosable cards; greetings, thanks, and "what can you do?" get their own answers, briefly before a pending question. Built and deployed with 006 (revision 7).
+  - `specs/008-github-practices/`: feature branches and pull requests with GitHub checks, a protected `main`, tagged releases for every deployment, and Conventional Commits.
 - **`.specify/feature.json`** (git-ignored) points the `/speckit-*` commands at the current feature. Update it when starting a new one.
 - **Keeping tasks current**: check off a task in `tasks.md` when its work lands. Update the spec or plan when scope or architecture changes, and record decisions in `docs/build-plan.md`.
 
@@ -38,7 +39,8 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 | `make dev` | API on :8000 (`--reload`) and web on :5173 |
 | `cd frontend && npm run check:ui` | Playwright and axe UI checks against `make dev`, in rules mode |
 | `make docker` / `make docker-run` | demo subset and image; run on :8080 with the key from `.env.local` at runtime |
-| `make deploy-azure` | build locally, push to the private registry, update Azure Container Apps |
+| `make deploy-azure` | build locally, push to the private registry, update Azure Container Apps (only from a clean `main` equal to `origin/main`) |
+| `scripts/release.sh vX.Y.Z docs/releases/vX.Y.Z.md` | after a deploy: annotated tag and GitHub release on `main` |
 
 ## Deployment (Azure Container Apps)
 
@@ -46,6 +48,7 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 - **Secrets live on the container app, never in the image**:
   - `anthropic-key` is overwritten from `.env.local` on every deploy;
   - `transcript-key` is created once and kept. **Never change or delete it**: every PDF issued so far would then fail verification.
+- **Versions**: each deployment is tagged and released (`v0.1.0` … `v0.5.0` so far, revisions 1-7); the submission is `v1.0.0`.
 - **After a deploy**, wait until the new revision takes 100% of traffic (`az containerapp revision list`) before checking `/api/health`: the first answers can come from the old revision.
 - **The in-container files are lost on scale to zero**: the handoff queue and the fingerprint register. PDFs still verify after that (`registered: false`).
 - **Rollback**: earlier revisions stay listed, inactive with 0% traffic, under `az containerapp revision list --all` (without `--all` only the active one shows). Roll back with `az containerapp revision activate --revision <name>`, then send it the traffic.
@@ -86,7 +89,11 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 
 ## Collaboration
 
-- **The owner's own work** has gone straight to `main` with their go-ahead, each commit passing tests, the build, and the secret scan.
-- **Teammates' branches**: run the official secret scan on `git diff main...<branch>`, the tests, the build, and the UI checks, then merge locally with `--no-ff` when the owner says so, putting the pull request description in the merge message. The GitHub CLI is installed at `~/.local/bin/gh` but not signed in: give the compare link (`https://github.com/mastersanto/factored-hackathon-2026-problem-crushers/compare/main...<branch>`) unless the owner signs in.
+- **Every change goes through a branch and a pull request** (specs/008, `CONTRIBUTING.md`; constitution 1.2.0).
+  - **Protection**: `main` is protected, admins included, so a direct push is refused.
+  - **Flow**: branch (`NNN-<feature>` or `<type>/<name>`) → local gates → push → `~/.local/bin/gh pr create --base main` with the template → the `frontend`, `backend`, and `secrets` checks green → `gh pr merge --merge --delete-branch` once the owner says to merge.
+  - **The GitHub CLI** is signed in as `mastersanto`, with the `repo` and `workflow` scopes.
+- **Commits**: Conventional Commits, checked by `.githooks/commit-msg`. `.githooks/pre-push` runs the private secret scan on every push. Enable them once per clone with `git config core.hooksPath .githooks`.
+- **Teammates' branches**: run the official secret scan on `git diff main...<branch>`, the tests, the build, and the UI checks, then merge their pull request when the owner says so.
 - **Redeploying** changes what the judges see, so ask first.
 - **Before changing course**: keep `docs/build-plan.md` current with decisions as they are made.
