@@ -205,7 +205,7 @@
     - an unclear "did you share?" is asked again rather than read as "no";
   - `docs/limitations.md`: the contact path's stage 2 has no state of its own, since the check resolves in one reply.
 - [X] T016 Run every gate: `make test`, `make eval` (compare `docs/evaluation.md` with the last committed numbers), the frontend build and lint, `npm run check:ui`, and the secret scan. If `docs/evaluation.md` changed, commit it with the code.
-- [ ] T017 Ask the owner before redeploying (`make deploy-azure`). After deploying:
+- [X] T017 Ask the owner before redeploying (`make deploy-azure`). After deploying:
   - wait for 100% traffic;
   - check the claim path and the scam path at 375 px on the live URL in ES, then switch to PT;
   - record the revision in CLAUDE.md and the build-status memory.
