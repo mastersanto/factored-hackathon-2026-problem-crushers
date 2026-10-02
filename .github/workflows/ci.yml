@@ -1,0 +1,57 @@
+# Checks on every pull request into main and every push to main (specs/008, research R1).
+# Only what runs without private data: the warehouse, the evaluation, and the private secret-scan patterns
+# never leave the owner's machine (constitution IV), so those gates are run locally and recorded in each PR.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run lint
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e backend pytest
+      - run: python -m compileall -q backend/app
+      - name: tests that need no data
+        working-directory: backend
+        env:
+          LLM_DISABLED: "1"
+        run: pytest -q tests/test_config.py
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
