@@ -15,6 +15,16 @@ IMAGE="$ACR.azurecr.io/$APP:$TAG"
 MAX_LLM_USD="${MAX_LLM_USD:-5.0}"
 
 cd "$(dirname "$0")/.."
+# Deploy only what is on main, committed, and on GitHub (specs/008, FR-813): the live app is always a commit
+# anyone can find, and its release tag (scripts/release.sh) can point at it.
+if [ "${ALLOW_UNRELEASED:-}" = "1" ]; then
+  echo "WARNING: ALLOW_UNRELEASED=1, deploying $(git rev-parse --short HEAD) without the main-branch checks"
+else
+  git fetch -q origin main
+  [ "$(git branch --show-current)" = "main" ] || { echo "deploy: switch to main first (merge your branch through a pull request)"; exit 1; }
+  [ -z "$(git status --porcelain)" ] || { echo "deploy: the working tree has uncommitted changes"; exit 1; }
+  [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "deploy: main is not equal to origin/main (pull first)"; exit 1; }
+fi
 KEY=$(grep -E '^ANTHROPIC_API_KEY=' .env.local | cut -d= -f2- | tr -d '"'"'"' ')
 [ -n "$KEY" ] || { echo "ANTHROPIC_API_KEY missing in .env.local (the app would run in rules mode)"; }
 

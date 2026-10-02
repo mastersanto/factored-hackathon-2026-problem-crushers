@@ -1,0 +1,15 @@
+#!/bin/sh
+# Conventional Commits, checked on every commit (specs/008, contracts/conventions.md).
+# Enable once per clone: git config core.hooksPath .githooks
+first=$(head -n 1 "$1")
+case "$first" in
+  "Merge "*|"Revert "*|"fixup! "*|"squash! "*) exit 0 ;;
+esac
+if printf '%s\n' "$first" | grep -Eq '^(feat|fix|docs|test|chore|ci|refactor)(\([a-z0-9-]+\))?!?: .+' \
+   && [ "${#first}" -le 72 ]; then
+  exit 0
+fi
+echo "commit-msg: the first line must be '<type>(<scope>): <summary>', at most 72 characters." >&2
+echo "  types: feat fix docs test chore ci refactor      e.g.  fix(chat): hide the source label on courtesy lines" >&2
+echo "  got (${#first} chars): $first" >&2
+exit 1
