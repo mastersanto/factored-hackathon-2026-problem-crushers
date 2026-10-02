@@ -73,13 +73,13 @@
   - merge commits;
   - the past deployments tagged from Azure's revision list;
   - what CI can't run and why.
-- [ ] T008 [US1] Commit everything so far on the branch (Conventional Commits; the local scan at 0), push with `git push -u origin 008-github-practices`, and open pull request #1 with `gh pr create --base main` and a body filled from the template. Wait for `frontend`, `backend`, and `secrets` to pass (`gh pr checks --watch`). If one fails, fix it on the branch and push again. Then merge with `gh pr merge --merge --delete-branch`, and update the local `main`.
-- [ ] T009 [US1] Turn on the protection for `main` (research R2):
+- [X] T008 [US1] Commit everything so far on the branch (Conventional Commits; the local scan at 0), push with `git push -u origin 008-github-practices`, and open pull request #1 with `gh pr create --base main` and a body filled from the template. Wait for `frontend`, `backend`, and `secrets` to pass (`gh pr checks --watch`). If one fails, fix it on the branch and push again. Then merge with `gh pr merge --merge --delete-branch`, and update the local `main`.
+- [X] T009 [US1] Turn on the protection for `main` (research R2):
   - with `gh api -X PUT repos/mastersanto/factored-hackathon-2026-problem-crushers/branches/main/protection`: required status checks `frontend`, `backend`, `secrets` (strict), `enforce_admins: true`, `required_pull_request_reviews` with `required_approving_review_count: 0`, `allow_force_pushes: false`, `allow_deletions: false`;
   - in the repository settings (`gh api -X PATCH repos/...`): `allow_merge_commit: true`, `allow_squash_merge: false`, `allow_rebase_merge: false`, `delete_branch_on_merge: true`.
 
   Check: a direct `git push origin main` of a throwaway local commit is refused. Then drop that commit with `git reset --hard origin/main`, after confirming it is the only difference.
-- [ ] T010 [US1] Delete the merged remote branch `003-ui-improvements` (`git push origin --delete 003-ui-improvements`, after confirming `git branch -r --merged origin/main` lists it) and its local copy.
+- [X] T010 [US1] Delete the merged remote branch `003-ui-improvements` (`git push origin --delete 003-ui-improvements`, after confirming `git branch -r --merged origin/main` lists it) and its local copy.
 
 **Checkpoint**: `main` is protected, and its history shows pull request #1 as a merge.
 
@@ -116,7 +116,7 @@
 
   Then it runs `git tag -a VERSION -F NOTES_FILE`, `git push origin VERSION`, and `gh release create VERSION --verify-tag --notes-file NOTES_FILE --title VERSION`. Add an optional `--at <commit>` for tagging an earlier deployed commit of `main` (used once by T014), which checks that the commit is an ancestor of `origin/main`.
 - [X] T013 [P] [US2] Add a guard at the top of `scripts/deploy-azure.sh`, before any Azure call: refuse unless on branch `main`, with a clean tree (`git status --porcelain` empty), after `git fetch origin main` and with `HEAD` equal to `origin/main`. Print the reason. Allow an explicit `ALLOW_UNRELEASED=1` override for emergencies, printing a warning.
-- [ ] T014 [US2] After T008-T009 (the notes and script reach `main` through a pull request, see T016), tag and release the past deployments from `main`: `scripts/release.sh vX.Y.Z docs/releases/vX.Y.Z.md --at <commit>`, in order `v0.1.0` → `v0.5.0`. Then make sure `v0.5.0` is marked latest (`gh release edit v0.5.0 --latest`). Check: `git rev-list -n1 v0.5.0` starts with `aec4a64`.
+- [X] T014 [US2] After T008-T009 (the notes and script reach `main` through a pull request, see T016), tag and release the past deployments from `main`: `scripts/release.sh vX.Y.Z docs/releases/vX.Y.Z.md --at <commit>`, in order `v0.1.0` → `v0.5.0`. Then make sure `v0.5.0` is marked latest (`gh release edit v0.5.0 --latest`). Check: `git rev-list -n1 v0.5.0` starts with `aec4a64`.
 
 ---
 
@@ -136,16 +136,28 @@
 
 ## Phase 6: Polish
 
-- [ ] T016 Open pull request #2, `chore/releases`, with T011-T013 if they weren't in pull request #1. It must pass the checks and merge through protection: the first pull request under the new rule. Then run T014.
-- [ ] T017 Run the quickstart end to end and record the results here:
+- [X] T016 Open pull request #2, `chore/releases`, with T011-T013 if they weren't in pull request #1. It must pass the checks and merge through protection: the first pull request under the new rule. Then run T014.
+- [X] T017 Run the quickstart end to end and record the results here:
   - hooks;
   - the pull request with green checks;
   - a refused direct push;
   - tags and releases;
   - a refused deploy from a branch.
-- [ ] T018 Update the build-status memory: protection on, tags `v0.1.0`-`v0.5.0`, the next release is `v0.6.0` or `v1.0.0` at submission, and every change now goes through a pull request.
+- [X] T018 Update the build-status memory: protection on, tags `v0.1.0`-`v0.5.0`, the next release is `v0.6.0` or `v1.0.0` at submission, and every change now goes through a pull request.
 
 ---
+
+## Results (2026-10-02)
+
+| Check | Result |
+|---|---|
+| Hooks | `git commit -m "bad message"` refused by `commit-msg`; `chore: hook check` accepted. `pre-push` ran on every push: 0 matches |
+| Pull request #1 | `frontend` (15 s), `backend` (36 s), `secrets` (8 s) green; merged as a merge commit (`82e3c0f`), branch deleted |
+| Protection | `main`: checks `frontend`, `backend`, `secrets` (strict), admins included, 0 approvals, no force pushes or deletions. A direct `git push origin main` was refused (GH006). Squash and rebase merges are off; branches are deleted on merge |
+| Old branch | `003-ui-improvements` (merged) deleted on GitHub and locally |
+| Tags and releases | `v0.1.0` … `v0.5.0` on `ab130b1`, `a229b75`, `860c486`, `360f5ad`, `aee52bd`, `c2994a6`, `aec4a64`; seven GitHub releases, `v0.5.0` latest |
+| Deploy guard | `scripts/deploy-azure.sh` from a branch: "deploy: switch to main first", before building |
+| Pull request #2 | this record, merged under protection |
 
 ## Dependencies and execution order
 
