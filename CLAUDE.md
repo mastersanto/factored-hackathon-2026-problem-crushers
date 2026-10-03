@@ -98,4 +98,5 @@ This repository uses GitHub Spec Kit (`specify` 1.0.11.dev0, Claude integration)
 - **Commits**: Conventional Commits, checked by `.githooks/commit-msg`. `.githooks/pre-push` runs the private secret scan on every push. Enable them once per clone with `git config core.hooksPath .githooks`.
 - **Teammates' branches**: run the official secret scan on `git diff main...<branch>`, the tests, the build, and the UI checks, then merge their pull request when the owner says so.
 - **Redeploying** changes what the judges see, so ask first.
+- **After the submission** (`v1.0.0`), `main` is frozen until 2026-10-16 and new work branches from and targets `next` (`CONTRIBUTING.md`, "After the submission").
 - **Before changing course**: keep `docs/build-plan.md` current with decisions as they are made.

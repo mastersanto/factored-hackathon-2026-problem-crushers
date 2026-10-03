@@ -46,3 +46,13 @@ Each deployment is a version, `vMAJOR.MINOR.PATCH`: MINOR for features and PATCH
 3. Tag and publish: `scripts/release.sh vX.Y.Z docs/releases/vX.Y.Z.md` (on `main`). Tags are never moved or deleted.
 
 The Releases page lists every deployment since the first, `v0.1.0`.
+
+## After the submission: `main` frozen, new work on `next`
+
+Judges evaluate the repository and the live demo from the submission (2026-10-05, midnight Colombia time) until finalists are announced (2026-10-15), and awards follow on 2026-10-16. What they see must stay what was submitted.
+
+- **`v1.0.0` marks the submitted commit**: its tag and GitHub release are the fixed reference, and the submission email links them alongside the repository.
+- **`main` is frozen until 2026-10-16**: only fixes the owner approves, each released as `v1.0.x`, and nothing that changes behaviour.
+- **New work goes to `next`**: branch from `next` (`git switch next && git pull && git switch -c <branch>`), and open pull requests with `gh pr create --base next`. The same gates and checks apply.
+- **The live demo stays on the submitted revision.** Trying `next` online needs a separate container app, never the one in the README, and the owner's approval.
+- **After 2026-10-16**, `next` merges into `main` through one pull request, and releases continue as `v1.1.0` and later.
