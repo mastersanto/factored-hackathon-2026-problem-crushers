@@ -75,8 +75,9 @@ Each version the judges can see (every deployment) has a tag with a version numb
    | `v0.5.0` | 7 | `aec4a64` | 006 and 007 |
 2. **Given** a new deployment, **Then** it gets the next version tag, and its release notes list the merged pull requests.
 3. **Given** the version numbers, **Then** they follow semantic versioning:
-   - before the submission, `0.MINOR.PATCH`, with MINOR per feature release and PATCH per fix release;
-   - the submitted version is `1.0.0`.
+   - `0.MINOR.PATCH`, with MINOR per feature release and PATCH per fix release;
+   - the submitted version is the next `0.MINOR.0` release, titled as the hackathon submission (amended 2026-10-02);
+   - `1.0.0` is reserved for the first release the team declares stable.
 4. **Given** a tag, **Then** it is never moved or deleted once pushed.
 
 ---
@@ -127,7 +128,7 @@ Each commit message says what changed in one line, with a conventional type pref
 
 **Versioning (US2, US3)**
 
-- **FR-807**: Each deployment MUST have an annotated version tag on its deployed commit, following semantic versioning (`v0.MINOR.PATCH` before the submission, and `v1.0.0` for the submitted version). It MUST have release notes naming its features, specs, merged pull requests, and live revision.
+- **FR-807**: Each deployment MUST have an annotated version tag on its deployed commit, following semantic versioning (`v0.MINOR.PATCH`; the submission is the next `v0.MINOR.0`, and `v1.0.0` is reserved for a release the team declares stable; amended 2026-10-02). It MUST have release notes naming its features, specs, merged pull requests, and live revision.
 - **FR-808**: Tags MUST NOT be moved or deleted once pushed.
 - **FR-809**: Commit messages from now on MUST follow `<type>(<scope>): <summary>`, with types `feat`, `fix`, `docs`, `test`, `chore`, `ci`, `refactor`, a first line of 72 characters or fewer, and a body saying why and how it was checked.
 - **FR-810**: The way of working MUST be written down where the team reads it: `CLAUDE.md` "Collaboration" (which today says the owner's work goes straight to `main`), the README, and a short contributing guide. The constitution's "Development Workflow" MUST name the pull request as the path to `main` (an amendment, with a version bump).
@@ -151,7 +152,7 @@ Each commit message says what changed in one line, with a conventional type pref
 - **SC-802**: Every deployment, past and future, has a version tag and release notes, so a reader can tell in under a minute what each deployed version added. (The seven past deployments are tagged `v0.1.0` to `v0.5.0`, the live one.)
 - **SC-803**: 100% of pull requests show automated check results, and their description states the local gates that passed.
 - **SC-804**: 100% of commits from now on follow the message convention.
-- **SC-805**: The submission at the deadline is tagged `v1.0.0`, with release notes covering every feature.
+- **SC-805**: The submission at the deadline is tagged with the next `v0.MINOR.0` (`v0.6.0` unless another release comes first), titled as the hackathon submission, with release notes covering every feature (amended 2026-10-02).
 
 ## Assumptions
 
@@ -160,3 +161,7 @@ Each commit message says what changed in one line, with a conventional type pref
 - **Review**: one builder does most of the work. A required approving review would block the owner's own pull requests, so the checks passing is the bar, plus the owner's review for teammates.
 - **Versions**: the first tag numbers follow the order of deployments (`v0.1.0` for the first deployment). The live revision number stays an Azure detail, recorded in the release notes.
 - **Scope**: the GitHub workflow only. No change to the app.
+
+## Amendment 2026-10-02: the submission is not `1.0.0`
+
+The owner pointed out that `1.0.0` signals a stable release, and the submission is a prototype on synthetic data with documented gaps before production (`docs/limitations.md`). The submission is therefore the next `0.MINOR.0` release, titled "hackathon submission". `1.0.0` is reserved for the first release the team declares stable, which cannot come before the production gaps in `docs/limitations.md` are closed. Fixes during the judging freeze are `0.MINOR.PATCH` (`CONTRIBUTING.md`, "After the submission"). FR-807, SC-805, and User Story 2's scenario 3 are amended accordingly.

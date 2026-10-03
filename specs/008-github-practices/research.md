@@ -47,7 +47,7 @@ Decisions for [plan.md](plan.md).
   - annotated tags on those commits, each message starting "Added 2026-10-02 for a deployment of <date>";
   - one GitHub release per tag, with notes: the features and specs, the Azure revision, and the deploy date;
   - `v0.5.0` is marked latest.
-- **Numbering**: MINOR for feature releases and PATCH for the two fix releases (spec FR-807). The submission is `v1.0.0`.
+- **Numbering**: MINOR for feature releases and PATCH for the two fix releases (spec FR-807). The submission is the next `v0.MINOR.0`, titled "hackathon submission"; `v1.0.0` is reserved for a release declared stable (amended 2026-10-02, spec FR-807).
 
 ## R5. Commit messages and local hooks
 
