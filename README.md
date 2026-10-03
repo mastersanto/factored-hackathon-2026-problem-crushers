@@ -113,7 +113,7 @@ See [`docs/limitations.md`](docs/limitations.md). It covers data limits, what th
 ## How we work
 
 - **Branches and pull requests**: every change is a branch, merged into a protected `main` through a pull request. Its GitHub checks are build and lint, the backend modules and the data-free tests, and a secret scan. The tests and evaluation that need the private data run locally, and each pull request records them.
-- **Versions**: each deployment is a tagged release, from `v0.1.0`, the first public deployment, to the submitted `v1.0.0`. See the [Releases](https://github.com/mastersanto/factored-hackathon-2026-problem-crushers/releases) page.
+- **Versions**: each deployment is a tagged release, from `v0.1.0`, the first public deployment, to the submission release (the next `v0.x`; `v1.0.0` is kept for a release the team declares stable). See the [Releases](https://github.com/mastersanto/factored-hackathon-2026-problem-crushers/releases) page.
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/).
 
 Details are in [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -38,4 +38,4 @@ Sections, all required:
 ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$
 ```
 
-Annotated, on a commit of `main` that was deployed. `v1.0.0` is the submission.
+Annotated, on a commit of `main` that was deployed. The submission is the next `v0.MINOR.0`, titled "hackathon submission". `v1.0.0` is reserved for the first release the team declares stable (amended 2026-10-02).
